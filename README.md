@@ -12,8 +12,9 @@ All art is procedural pixel art and all sound is synthesized with Web Audio.
 |---|---|
 | W A S D | Move |
 | Mouse | Aim the heads |
-| V (or right mouse) | Tractor beam from the active head |
+| V (or right mouse) | Tractor beam from the active head (a fixed-width ray that stops at the first block) |
 | E (or left mouse) | Fire a Wither Skull |
+| Q | Tentacle slam at the cursor (Phase 1+) |
 | 1 / 2 / 3 | Select head |
 | Shift | Chase burst (Phase 4+) |
 | M | Full map |

@@ -23,7 +23,7 @@
 // CONFIG
 // =====================================================================
 const CFG = Object.freeze({
-  TILE: 16, WT: 384, CHUNK: 32, CHUNK_CACHE_MAX: 80, CHUNK_BUILDS_PER_FRAME: 6,
+  TILE: 16, WT: 640, CHUNK: 32, CHUNK_CACHE_MAX: 80, CHUNK_BUILDS_PER_FRAME: 6,
   SEED: 20151015, STEP: 1 / 60, MAX_FRAME: 0.1, MAX_STEPS: 5,
   MAX_PARTICLES: 3000, MAX_CLUSTERS: 800, MAX_SKULLS: 64, MAX_EPROJ: 320, MAX_NPCS: 1500,
   GRID_CELL: 128,
@@ -34,7 +34,7 @@ const CFG = Object.freeze({
   INJURY_TIME: 6, JESSE_ESCAPE_DIST: 350, JESSE_TIMER: 240, TRANSIT_TIME: 6,
   FBOMB_DIST: 450, FBOMB_FUSE: 10, DEADPLAY_TIME: 6,
   MU_CAP_PRE_BOMB: 2200, MU_PHASE7: 3200, MU_PHASE75: 3350,
-  ZOOM_MAX: 1.0, ZOOM_MIN: 0.45,
+  ZOOM_MAX: 1.6, ZOOM_MIN: 0.45,
   BOWELS_SIZE: 1600, BOWELS_R: 760,
   JESSE_HP: 100, REUBEN_HP: 30,
   DIGEST_BASE: 1.4, DIGEST_PER_STAGE: 1.25, DIGEST_BACKLOG: 0.004,
@@ -77,9 +77,9 @@ const PROGENY_R = 90;
 
 // Per-head identity.
 const HEADS = [
-  { label: '1', range: 1.0, half: 0.30, pull: 1.0, dmg: 1.3, cd: 1.15, size: 0.40, eye: '#c77dff', eyeGlow: [200, 120, 255], off: 0, dist: 0.62 },
-  { label: '2', range: 0.85, half: 0.26, pull: 0.8, dmg: 1.0, cd: 0.72, size: 0.30, eye: '#ff5c7c', eyeGlow: [255, 80, 120], off: -0.85, dist: 0.60 },
-  { label: '3', range: 1.35, half: 0.20, pull: 0.85, dmg: 0.9, cd: 1.0, size: 0.30, eye: '#8a8cff', eyeGlow: [130, 130, 255], off: 0.85, dist: 0.60 },
+  { label: '1', range: 1.0, bw: 11, pull: 1.0, dmg: 1.3, cd: 1.15, size: 0.40, eye: '#c77dff', eyeGlow: [200, 120, 255], off: 0, dist: 0.62 },
+  { label: '2', range: 0.85, bw: 9, pull: 0.8, dmg: 1.0, cd: 0.72, size: 0.30, eye: '#ff5c7c', eyeGlow: [255, 80, 120], off: -0.85, dist: 0.60 },
+  { label: '3', range: 1.35, bw: 7, pull: 0.85, dmg: 0.9, cd: 1.0, size: 0.30, eye: '#8a8cff', eyeGlow: [130, 130, 255], off: 0.85, dist: 0.60 },
 ];
 
 // Mass unit values for entities.
@@ -87,7 +87,7 @@ const MU_ANIMAL = 3, MU_MOB = 5, MU_NPC = 10;
 
 const GAME_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyV', 'KeyE', 'Digit1', 'Digit2', 'Digit3',
   'ShiftLeft', 'ShiftRight', 'KeyP', 'KeyR', 'KeyM', 'F3', 'KeyH', 'KeyN', 'Space', 'Enter', 'Escape',
-  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab']);
+  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'KeyQ']);
 
 // =====================================================================
 // UTILS / RNG
@@ -342,10 +342,16 @@ const B_COMMAND = defMat('command', { tex: 'command', c1: '#c47a3c', c2: '#e0a06
 const B_GOLD = defMat('gold', { tex: 'diamond', c1: '#f0c830', c2: '#fff09a', c3: '#b88a10', hp: 100 });
 const B_BOOKS = defMat('books', { tex: 'books', c1: '#b08850', c2: '#6b4f2a', hp: 30, flam: true });
 const B_FLESH = defMat('flesh', { tex: 'flesh', c1: '#4a0e3a', c2: '#7a1a5a', c3: '#2a0620', hp: 999 });
+const G_REDSAND = defMat('redsand', { layer: 0, tex: 'noise', c1: '#c0662c', c2: '#a8531f', amp: 10 });
+const G_DEADBUSH = defMat('deadbush', { layer: 0, tex: 'deadbush', c1: '#c0662c', c2: '#6b4a22', hp: 5, mu: 0.1, natural: true, pullTo: 'redsand', pull: 1 });
+const B_TERRA = defMat('terracotta', { tex: 'terra', c1: '#a0522d', c2: '#8e4724', hp: 50 });
+const B_TERRA2 = defMat('terracotta2', { tex: 'terra', c1: '#d08a3a', c2: '#b87830', hp: 50 });
+const B_TERRA3 = defMat('terracotta3', { tex: 'terra', c1: '#d9b8a8', c2: '#c4a292', hp: 50 });
+const B_CACTUS = defMat('cactus', { tex: 'cactus', c1: '#3f8a2a', c2: '#2c6a1c', c3: '#d8e8b0', hp: 10, mu: 0.1, natural: true });
 for (const m of MATS) if (m.pullTo) m.pullTo = MAT[m.pullTo];
 
 const TEX = [];
-let TEX_CRACK = [], TEX_RUBBLE = null, GLOW = null;
+let TEX_CRACK = [], TEX_RUBBLE = null, GLOW = null, TEX_WSKULL = null;
 const MAPCOL = [];           // [r,g,b] per material for the minimap
 const glowCache = new Map(); // tinted glow sprites
 
@@ -529,6 +535,20 @@ function genTex(m, rng) {
       for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) set(x, y, rng() < 0.25 ? alt : base, nz(12));
       for (let k = 0; k < 3; k++) { let x = Math.floor(rng() * 16), y = Math.floor(rng() * 16); for (let s = 0; s < 7; s++) { set(x, y, dark); x += Math.floor(rng() * 3) - 1; y += Math.floor(rng() * 3) - 1; } }
       break;
+    case 'deadbush':
+      fillNoise(base, 10);
+      for (let k = 0; k < 2; k++) { let x = 4 + Math.floor(rng() * 8), y = 12; for (let s = 0; s < 7; s++) { set(x, y, alt); if (rng() < 0.4) set(x + (rng() < 0.5 ? 1 : -1), y, alt, 15); y--; x += Math.floor(rng() * 3) - 1; } }
+      break;
+    case 'terra':
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) set(x, y, (y % 8 === 7) ? alt : base, nz(5));
+      break;
+    case 'cactus':
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+        const edge = x === 0 || y === 0 || x === 15 || y === 15, rib = x % 4 === 1;
+        set(x, y, edge ? alt : base, nz(6) + (rib ? 18 : 0));
+      }
+      for (let k = 0; k < 6; k++) set(1 + Math.floor(rng() * 14), 1 + Math.floor(rng() * 14), dark);
+      break;
     case 'redwire':
       fillNoise(base, 8);
       for (let i = 0; i < 16; i++) { set(i, 7, alt, nz(20)); set(i, 8, dark); set(7, i, alt, nz(20)); set(8, i, dark); }
@@ -644,6 +664,9 @@ function buildTextures() {
   MAPCOL[B_LEAVES] = [44, 96, 30];
   TEX_CRACK = [null, genCrack(1, trng), genCrack(2, trng)];
   TEX_RUBBLE = genRubble(trng);
+  TEX_WSKULL = makeCanvas(8, 8);
+  { const g = TEX_WSKULL.getContext('2d'); const sk = ['#1c1c1c', '#262626', '#2f2f2f', '#141414', '#383838'];
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { g.fillStyle = sk[Math.floor(trng() * sk.length)]; g.fillRect(x, y, 1, 1); } }
   GLOW = genGlow();
   for (const k in PAL) buildSprite(k, PAL[k]);
   // storm flesh pattern (blocky black/purple noise)
@@ -665,13 +688,16 @@ const F_SCORCH = 1, F_RUBBLE = 2, F_BURN = 4, F_STRUCT = 8, F_LIT = 16;
 const tidx = (x, y) => y * WT + x;
 const inb = (x, y) => x >= 0 && y >= 0 && x < WT && y < WT;
 const LOC = {
-  endercon: { x: 192, y: 320, r: 44, name: 'EnderCon' },
-  gabriel: { x: 262, y: 250, r: 33, name: "Gabriel's Fortress" },
-  boom: { x: 70, y: 200, r: 37, name: 'Boom Town' },
-  redstonia: { x: 320, y: 150, r: 37, name: 'Redstonia' },
-  soren: { x: 190, y: 50, r: 42, name: "Soren's Fortress" },
+  endercon: { x: 320, y: 560, r: 44, name: 'EnderCon' },
+  gabriel: { x: 452, y: 452, r: 33, name: "Gabriel's Fortress" },
+  boom: { x: 112, y: 340, r: 37, name: 'Boom Town' },
+  redstonia: { x: 530, y: 250, r: 37, name: 'Redstonia' },
+  soren: { x: 320, y: 92, r: 42, name: "Soren's Fortress" },
 };
-const VILLAGES = [[100, 285], [300, 318], [95, 120], [224, 196], [40, 300], [330, 215], [165, 190], [330, 62], [40, 110], [260, 352]];
+const TREEHOUSE = { x: 262, y: 600 };
+const MAP_LABELS = [{ x: 262, y: 612, name: "JESSE'S TREEHOUSE" }, { x: 320, y: 14, name: 'THE FAR LANDS' }, { x: 112, y: 258, name: 'BADLANDS' }];
+const FARLANDS_Y = 34;
+const VILLAGES = [[170, 480], [420, 600], [540, 560], [380, 380], [290, 330], [160, 220], [420, 180], [600, 140], [60, 520], [300, 450], [500, 360], [180, 600], [60, 180], [560, 440]];
 let SPAWNS = [], SIGNS = [], WORLDINFO = null;
 
 function gSet(x, y, m) { if (inb(x, y)) ground[tidx(x, y)] = m; }
@@ -759,13 +785,37 @@ function house(x0, y0, w, h, wall, corner, floor, door) {
 }
 
 function genTerrain() {
+  const bx = LOC.boom.x, by = LOC.boom.y;
   for (let y = 0; y < WT; y++) for (let x = 0; x < WT; x++) {
     const i = tidx(x, y);
+    block[i] = 0; thp[i] = 0; flags[i] = 0;
     let g = G_GRASS;
     if (fbm(x / 22, y / 22, 9, 2) > 0.7) g = G_DIRT;
     if (fbm(x / 26, y / 26, 13, 2) > 0.7) g = G_FLOWERS;
-    ground[i] = g; block[i] = 0; thp[i] = 0; flags[i] = 0;
-    const mnt = fbm(x / 45, y / 45, 7, 4) + clamp((95 - y) / 70, 0, 1) * 0.55 + clamp((20 - x) / 30, 0, 1) * 0.2;
+    ground[i] = g;
+    // The Far Lands: glitched, ribbed stone walls at the northern edge of the world (Soren's home)
+    if (y < FARLANDS_Y) {
+      ground[i] = G_GRAVEL;
+      const rib = (x % 9) < 6 || y < 10;
+      const hole = y > 8 && vnoise(x / 3.5, y / 7, 71) > 0.64;
+      if (rib && !hole) {
+        const r = hash2(x, y, 77);
+        const m = y % 6 === 0 ? B_COBBLE : r < 0.05 ? B_ORE : (((x >> 1) + y) % 13 === 0 ? B_SANDSTONE : B_STONE);
+        block[i] = m; thp[i] = MATS[m].hp;
+      }
+      continue;
+    }
+    // Badlands (mesa) around Boom Town
+    const bd = Math.hypot(x - bx, y - by) + (vnoise(x / 14, y / 14, 61) - 0.5) * 34;
+    if (bd < 95) {
+      ground[i] = hash2(x, y, 63) < 0.025 ? G_DEADBUSH : G_REDSAND;
+      const mesa = fbm(x / 26, y / 26, 62, 3);
+      if (mesa > 0.6 && bd > 44) { const band = Math.floor(mesa * 30) % 3; const m = band === 0 ? B_TERRA : band === 1 ? B_TERRA2 : B_TERRA3; block[i] = m; thp[i] = MATS[m].hp; }
+      else if (bd > 44 && hash2(x, y, 64) < 0.01) { block[i] = B_CACTUS; thp[i] = MATS[B_CACTUS].hp; }
+      continue;
+    }
+    // mountains towards the north and along the west/east edges
+    const mnt = fbm(x / 60, y / 60, 7, 4) + clamp((170 - y) / 120, 0, 1) * 0.55 + clamp((24 - x) / 40, 0, 1) * 0.2 + clamp((x - WT + 24) / 40, 0, 1) * 0.2;
     if (mnt > 0.8) {
       const r = hash2(x, y, 99);
       block[i] = r < 0.04 ? B_ORE : r < 0.12 ? B_COBBLE : B_STONE; thp[i] = MATS[block[i]].hp; ground[i] = G_GRAVEL;
@@ -773,33 +823,38 @@ function genTerrain() {
   }
   // rivers + lake
   const west = [], east = [];
-  for (let y = 70; y <= WT + 4; y += 8) west.push([130 + Math.sin(y / 23) * 8 + (vnoise(y / 30, 1, 5) - 0.5) * 8, y]);
-  for (let y = 196; y <= WT + 4; y += 8) east.push([366 + Math.sin(y / 19) * 6, y]);
-  riverPath(west, 3.2); riverPath(east, 2.6);
-  for (let y = 0; y < WT; y++) for (let x = 0; x < WT; x++) {
-    const dd = Math.hypot(x - 50, (y - 350) * 1.3) + (vnoise(x / 6, y / 6, 3) - 0.5) * 6;
-    if (dd < 12) { const i = tidx(x, y); ground[i] = G_WATER; block[i] = 0; } else if (dd < 14.5) { const i = tidx(x, y); if (ground[i] !== G_WATER) ground[i] = G_SAND; }
+  for (let y = 150; y <= WT + 8; y += 8) west.push([232 + Math.sin(y / 31) * 10 + (vnoise(y / 40, 1, 5) - 0.5) * 10, y]);
+  for (let y = 330; y <= WT + 8; y += 8) east.push([600 + Math.sin(y / 23) * 8, y]);
+  riverPath(west, 3.4); riverPath(east, 2.8);
+  for (let y = 530; y < 592; y++) for (let x = 55; x < 127; x++) {
+    const dd = Math.hypot(x - 90, (y - 560) * 1.3) + (vnoise(x / 6, y / 6, 3) - 0.5) * 6, i = tidx(x, y);
+    if (dd < 16) { ground[i] = G_WATER; block[i] = 0; } else if (dd < 18.5 && ground[i] !== G_WATER) ground[i] = G_SAND;
   }
   // forests (plus a dense belt between EnderCon and Gabriel's Fortress)
+  const ax = LOC.endercon.x, ay = LOC.endercon.y, gx = LOC.gabriel.x, gy = LOC.gabriel.y;
+  const segL2 = (gx - ax) ** 2 + (gy - ay) ** 2;
+  const noTree = (i, y) => y < FARLANDS_Y + 3 || ground[i] === G_REDSAND || ground[i] === G_DEADBUSH || ground[i] === G_WATER || block[i];
   for (let cy = 0; cy < WT; cy += 4) for (let cx = 0; cx < WT; cx += 4) {
-    let dens = fbm(cx / 50, cy / 50, 21, 3);
-    const onBelt = Math.abs(cx + cy - 516) < 14 && cx > 200 && cx < 260; // diagonal belt between EnderCon and Gabriel's
-    if (onBelt) dens = Math.max(dens, 0.75);
+    let dens = fbm(cx / 70, cy / 70, 21, 3);
+    const u = clamp(((cx - ax) * (gx - ax) + (cy - ay) * (gy - ay)) / segL2, 0, 1);
+    const beltD = Math.hypot(cx - (ax + (gx - ax) * u), cy - (ay + (gy - ay) * u));
+    if (beltD < 14 && u > 0.3 && u < 0.72) dens = Math.max(dens, 0.78);
+    const x = cx + wi(0, 3), y = cy + wi(0, 3);
+    if (!inb(x, y)) continue;
     if (dens > 0.56 && wrnd() < (dens - 0.5) * 2.4) {
-      const x = cx + wi(0, 3), y = cy + wi(0, 3);
-      if (inb(x, y) && !block[tidx(x, y)] && ground[tidx(x, y)] !== G_WATER) {
+      if (!noTree(tidx(x, y), y)) {
         tree(x, y);
-        if (wrnd() < 0.08) spawnAt(['zombie', 'skeleton', 'creeper'][wi(0, 2)], x + 3, y);
+        if (wrnd() < 0.06) spawnAt(['zombie', 'skeleton', 'creeper'][wi(0, 2)], x + 3, y);
       }
-    } else if (wrnd() < 0.012) {
-      const x = cx + wi(0, 3), y = cy + wi(0, 3);
-      if (inb(x, y) && !block[tidx(x, y)] && ground[tidx(x, y)] !== G_WATER) tree(x, y);
-    }
+    } else if (wrnd() < 0.012 && !noTree(tidx(x, y), y)) tree(x, y);
   }
   // rocks
-  for (let k = 0; k < 90; k++) {
-    const x = wi(4, WT - 5), y = wi(4, WT - 5), m = wrnd() < 0.5 ? B_STONE : B_COBBLE;
-    for (let n = 0; n < wi(2, 6); n++) { const tx = x + wi(-1, 1), ty = y + wi(-1, 1); if (inb(tx, ty) && ground[tidx(tx, ty)] !== G_WATER) { block[tidx(tx, ty)] = m; thp[tidx(tx, ty)] = MATS[m].hp; } }
+  for (let k = 0; k < 240; k++) {
+    const x = wi(4, WT - 5), y = wi(FARLANDS_Y + 4, WT - 5), m = wrnd() < 0.5 ? B_STONE : B_COBBLE;
+    for (let n = 0; n < wi(2, 6); n++) {
+      const tx = x + wi(-1, 1), ty = y + wi(-1, 1);
+      if (inb(tx, ty) && ground[tidx(tx, ty)] !== G_WATER && ground[tidx(tx, ty)] !== G_REDSAND) { block[tidx(tx, ty)] = m; thp[tidx(tx, ty)] = MATS[m].hp; }
+    }
   }
 }
 
@@ -812,6 +867,7 @@ function genRoads() {
   R(L.boom, L.soren, 4, G_GRAVEL, 14);
   R(L.redstonia, L.soren, 4, G_GRAVEL, 15);
   R(L.gabriel, L.boom, 3, G_PATH, 16);
+  R(L.endercon, TREEHOUSE, 2, G_PATH, 17);
   const locs = Object.values(L);
   VILLAGES.forEach(([vx, vy], k) => {
     let best = null, bd = 1e9;
@@ -821,7 +877,7 @@ function genRoads() {
 }
 
 function genNetherRail() {
-  const pts = [[107, 200], [140, 196], [200, 181], [250, 170], [283, 150]];
+  const pts = [[149, 341], [200, 332], [262, 312], [340, 292], [420, 272], [493, 251]];
   const path = [];
   for (let s = 0; s < pts.length - 1; s++) {
     const [ax, ay] = pts[s], [bx, by] = pts[s + 1], L = Math.ceil(Math.hypot(bx - ax, by - ay));
@@ -941,7 +997,7 @@ function genGabriel() {
 
 function genBoomTown() {
   const { x: cx, y: cy } = LOC.boom;
-  clearDisc(cx, cy, 37, (x, y) => (hash2(x, y, 3) < 0.6 ? G_DIRT : G_GRAVEL));
+  clearDisc(cx, cy, 37, (x, y) => (hash2(x, y, 3) < 0.65 ? G_REDSAND : G_GRAVEL));
   for (let k = 0; k < 28; k++) discG(cx + wi(-32, 32), cy + wi(-32, 32), wi(1, 3), G_SCORCH);
   for (let k = -34; k <= 34; k += 10) { fillG(cx - 34, cy + k - 1, 69, 2, G_GRAVEL); fillG(cx + k - 1, cy - 34, 2, 69, G_GRAVEL); }
   for (let gy = -3; gy <= 2; gy++) for (let gx = -3; gx <= 2; gx++) {
@@ -979,6 +1035,8 @@ function genBoomTown() {
   spawnRing('villager', cx, cy, 4, 30, 16);
   WORLDINFO.hide.boom = { x: (cx - 4) * TILE, y: (cy + 5) * TILE };
   WORLDINFO.railBoom = { x: (cx + 37) * TILE, y: (cy + 1) * TILE };
+  WORLDINFO.portalBoom = portalFrame(cx, cy - 44);
+  SIGNS.push({ tx: cx, ty: cy + 39, text: 'BOOM TOWN', ground: true });
 }
 
 function genRedstonia() {
@@ -1016,6 +1074,7 @@ function genRedstonia() {
   spawnRing('villager', cx, cy, 4, 30, 12);
   WORLDINFO.hide.redstonia = { x: cx * TILE + 8, y: (cy + 2) * TILE };
   WORLDINFO.railRed = { x: (cx - 37) * TILE, y: cy * TILE };
+  WORLDINFO.portalRed = portalFrame(cx, cy + 44);
 }
 
 function genSoren() {
@@ -1059,6 +1118,7 @@ function genSoren() {
   spawnRing('guard', cx, cy + 12, 2, 10, 6, { fort: true });
   spawnRing('villager', cx, cy + 4, 4, 20, 10);
   WORLDINFO.hide.soren = { x: cx * TILE + 8, y: (cy - 2) * TILE };
+  WORLDINFO.portalSoren = portalFrame(cx, cy + 50);
 }
 
 function genVillages() {
@@ -1082,29 +1142,50 @@ function genVillages() {
   });
 }
 
+function portalFrame(cx, cy) {
+  clearDisc(cx, cy, 5, G_STONEFLOOR);
+  fillB(cx - 3, cy - 1, 6, 1, B_OBSIDIAN); fillB(cx - 3, cy + 1, 6, 1, B_OBSIDIAN);
+  bSet(cx - 3, cy, B_OBSIDIAN, true); bSet(cx + 2, cy, B_OBSIDIAN, true);
+  for (let x = cx - 2; x <= cx + 1; x++) bSet(x, cy, B_PORTAL, true);
+  SIGNS.push({ tx: cx, ty: cy + 3, text: 'NETHER PORTAL', ground: true, small: true });
+  return { x: cx * TILE, y: cy * TILE + 8 };
+}
 function genLandmarks() {
+  // Jesse's treehouse (where Season 1 begins), beside the river
+  const { x: hx, y: hy } = TREEHOUSE;
+  clearDisc(hx, hy, 8, G_GRASS);
+  for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) {
+    const d = Math.hypot(dx, dy); if (d > 6.3 || d < 3.2) continue;
+    if (hash2(hx + dx, hy + dy, 91) < 0.9) bSet(hx + dx, hy + dy, B_LEAVES, true);
+  }
+  fillG(hx - 2, hy - 2, 5, 5, G_PLANKFLOOR);
+  ringB(hx - 2, hy - 2, 5, 5, (x, y) => ((x === hx - 2 || x === hx + 2) && (y === hy - 2 || y === hy + 2)) ? B_LOG : B_PLANKS, 1);
+  bSet(hx, hy + 2, 0); bSet(hx - 1, hy - 1, B_WOOL_R, true); bSet(hx + 1, hy - 1, B_BOOKS, true);
+  SIGNS.push({ tx: hx, ty: hy + 9, text: "JESSE'S TREEHOUSE", ground: true, small: true });
   // windmill
-  const wx = 160, wy = 246;
+  const wx = 270, wy = 500;
   clearDisc(wx, wy, 6, G_GRASS);
   ringB(wx - 2, wy - 2, 5, 5, B_COBBLE, 1); bSet(wx, wy, B_LOG, true);
   for (let k = 1; k <= 5; k++) { bSet(wx + k + 2, wy, B_WOOL_W, true); bSet(wx - k - 2, wy, B_WOOL_W, true); bSet(wx, wy + k + 2, B_WOOL_W, true); bSet(wx, wy - k - 2, B_WOOL_W, true); }
   SIGNS.push({ tx: wx, ty: wy + 9, text: 'WINDMILL', ground: true, small: true });
   // watchtower
-  const tx = 296, ty = 196;
+  const tx = 480, ty = 330;
   clearDisc(tx, ty, 5, G_GRASS);
   ringB(tx - 2, ty - 2, 5, 5, B_LOG, 1); fillB(tx - 1, ty - 1, 3, 3, B_PLANKS); bSet(tx, ty, B_LAMP, true);
   spawnAt('archer', tx, ty + 3, { stat: true });
-  // ruined temple
-  const rx = 34, ry = 60;
+  // ruined temple in the western mountains
+  const rx = 60, ry = 120;
   clearDisc(rx, ry, 11, G_SAND);
   ringB(rx - 8, ry - 8, 17, 17, (x, y) => (hash2(x, y, 4) < 0.28 ? 0 : B_SANDSTONE), 1);
   ringB(rx - 4, ry - 4, 9, 9, (x, y) => (hash2(x, y, 5) < 0.2 ? 0 : B_SANDSTONE), 1);
   bSet(rx, ry, B_GOLD, true); bSet(rx - 1, ry, B_DIAMOND, true); bSet(rx + 1, ry, B_TNT, true); bSet(rx, ry + 1, B_TNT, true);
   SIGNS.push({ tx: rx, ty: ry + 10, text: 'RUINED TEMPLE', ground: true, small: true });
-  // Monument of the Order of the Stone between EnderCon and Gabriel's
-  const ox = 226, oy = 214;
+  // Monument of the Order of the Stone, in the forest between EnderCon and Gabriel's
+  const ox = 386, oy = 506;
   clearDisc(ox, oy, 5, G_STONEFLOOR);
   bSet(ox - 2, oy, B_DIAMOND, true); bSet(ox + 2, oy, B_REDSTONE, true); bSet(ox, oy - 2, B_TNT, true); bSet(ox, oy + 2, B_GOLD, true); bSet(ox, oy, B_OBSIDIAN, true);
+  SIGNS.push({ tx: ox, ty: oy + 4, text: 'ORDER OF THE STONE', ground: true, small: true });
+  SIGNS.push({ tx: 320, ty: FARLANDS_Y + 2, text: 'THE FAR LANDS', ground: true });
 }
 
 function genWorld() {
@@ -1122,9 +1203,9 @@ function genWorld() {
   genSoren();
   WORLDINFO.railPath = genNetherRail();
   // wildlife on open grass
-  for (let k = 0; k < 190; k++) {
-    const x = wi(5, WT - 6), y = wi(5, WT - 6), i = tidx(x, y);
-    if (block[i] || ground[i] === G_WATER) continue;
+  for (let k = 0; k < 480; k++) {
+    const x = wi(5, WT - 6), y = wi(FARLANDS_Y + 5, WT - 6), i = tidx(x, y);
+    if (block[i] || ground[i] === G_WATER || ground[i] === G_REDSAND || ground[i] === G_DEADBUSH) continue;
     let near = false; for (const l of Object.values(LOC)) if (Math.hypot(l.x - x, l.y - y) < l.r + 6) near = true;
     if (!near) spawnAt(['cow', 'pig', 'chicken', 'pig', 'cow'][k % 5], x, y);
   }
@@ -1429,16 +1510,39 @@ function tgtPos(code, out) {
   }
   out.x = s.x; out.y = s.y; out.r = s.r * 0.5;
 }
-function inCone(b, x, y) {
-  const dx = x - b.ox, dy = y - b.oy, dd = dx * dx + dy * dy;
-  if (b.bubble) return dd < b.len * b.len;
-  if (dd > (b.len + b.ring) * (b.len + b.ring)) return false;
-  if (d2(x, y, b.ix, b.iy) < b.ring * b.ring) return true;
-  if (dd < 400) return true;
-  return Math.abs(angDiff(b.dir, Math.atan2(dy, dx))) < b.half;
+const RAY = { len: 0, tx: -1, ty: -1 };
+function raycastTiles(ox, oy, dir, maxLen) {
+  // DDA grid traversal: the beam stops at the first block it touches
+  const dx = Math.cos(dir), dy = Math.sin(dir);
+  let tx = Math.floor(ox / TILE), ty = Math.floor(oy / TILE);
+  const stepX = dx > 0 ? 1 : -1, stepY = dy > 0 ? 1 : -1;
+  const tdx = dx !== 0 ? Math.abs(TILE / dx) : Infinity, tdy = dy !== 0 ? Math.abs(TILE / dy) : Infinity;
+  let tmx = dx > 0 ? ((tx + 1) * TILE - ox) / dx : dx < 0 ? (tx * TILE - ox) / dx : Infinity;
+  let tmy = dy > 0 ? ((ty + 1) * TILE - oy) / dy : dy < 0 ? (ty * TILE - oy) / dy : Infinity;
+  let t = 0;
+  while (t < maxLen) {
+    if (!inb(tx, ty)) break;
+    const b = block[tidx(tx, ty)];
+    if (b && b !== B_PORTAL) { RAY.len = t; RAY.tx = tx; RAY.ty = ty; return RAY; }
+    if (tmx < tmy) { t = tmx; tmx += tdx; tx += stepX; } else { t = tmy; tmy += tdy; ty += stepY; }
+  }
+  RAY.len = Math.min(t, maxLen); RAY.tx = -1; RAY.ty = -1;
+  return RAY;
+}
+function makeRayBeam(code, ox, oy, dir, maxLen, hw, pull, power, strength, main) {
+  raycastTiles(ox, oy, dir, maxLen);
+  return { code, ox, oy, dir, len: RAY.len, hw, hitTx: RAY.tx, hitTy: RAY.ty, ix: ox + Math.cos(dir) * RAY.len, iy: oy + Math.sin(dir) * RAY.len,
+    bubble: false, pull, power, strength, main };
+}
+function inBeam(b, x, y, pad) {
+  const dx = x - b.ox, dy = y - b.oy;
+  if (b.bubble) return dx * dx + dy * dy < b.len * b.len;
+  const c = Math.cos(b.dir), s = Math.sin(b.dir), along = dx * c + dy * s;
+  if (along < -pad || along > b.len + b.hw + pad) return false;
+  return Math.abs(dy * c - dx * s) <= b.hw + pad;
 }
 function beamHolds(code, x, y) {
-  for (const b of G.beams) if (b.code === code && inCone(b, x, y)) return b;
+  for (const b of G.beams) if (b.code === code && inBeam(b, x, y, 26)) return b;
   return null;
 }
 function updateClusters(dt) {
@@ -1758,7 +1862,7 @@ function updateNPC(n, dt, act) {
   // --- tractor beams & passive pull ---
   let pullB = null, pullCode = -1;
   if (!s.disabled && G.mode === 'world') {
-    for (const b of G.beams) { if (inCone(b, n.x, n.y)) { pullB = b; pullCode = b.code; break; } }
+    for (const b of G.beams) { if (inBeam(b, n.x, n.y, 8)) { pullB = b; pullCode = b.code; break; } }
     if (!pullB && s.stage >= 1 && d2(n.x, n.y, s.x, s.y) < (stormPassiveR() * 0.9) ** 2) pullCode = 3;
   }
   if (pullCode >= 0) {
@@ -1902,7 +2006,8 @@ function explode(x, y, R, dmg, o) {
   }
   queryNPCs(x, y, R * 1.15, (n) => {
     const dd = dist(x, y, n.x, n.y) + 0.01, f = 1 - dd / (R * 1.15);
-    hurtNPC(n, dmg * 0.6 * f, ((n.x - x) / dd) * 260 * f, ((n.y - y) / dd) * 260 * f);
+    const kb = o.slam ? 440 : 260;
+    hurtNPC(n, dmg * 0.6 * f, ((n.x - x) / dd) * kb * f, ((n.y - y) / dd) * kb * f);
   });
   if (o.hurtsStorm && G.mode === 'world' && !s.disabled) {
     const ds = dist(x, y, s.x, s.y);
@@ -1914,11 +2019,12 @@ function explode(x, y, R, dmg, o) {
   }
   // FX
   const big = R > 70;
-  burst(x, y, Math.min(60, 12 + R * 0.4), R * 3, 0.7, 5, o.flaming ? PC.fire : (o.skull ? PC.purple : PC.fire), 1);
+  if (o.slam) burst(x, y, Math.min(50, 12 + R * 0.4), R * 3, 0.7, 5, PC.dirt, 0, 40);
+  else burst(x, y, Math.min(60, 12 + R * 0.4), R * 3, 0.7, 5, o.flaming ? PC.fire : (o.skull ? PC.purple : PC.fire), 1);
   burst(x, y, Math.min(40, 8 + R * 0.25), R * 2, 1.2, 6, PC.smoke, 0, -20);
-  burst(x, y, 10, R * 4, 0.35, 3, PC.yellow, 2);
-  G.rings.push({ x, y, r: R * 0.2, max: R * 1.6, life: 0.45, t: 0, col: o.skull ? [190, 110, 255] : [255, 180, 90], w: big ? 8 : 4 });
-  G.flashes.push({ x, y, r: R * 2.4, life: 0.25, t: 0, col: o.skull ? [170, 90, 255] : [255, 170, 80] });
+  if (!o.slam) burst(x, y, 10, R * 4, 0.35, 3, PC.yellow, 2);
+  G.rings.push({ x, y, r: R * 0.2, max: R * 1.6, life: 0.45, t: 0, col: o.slam ? [235, 220, 200] : o.skull ? [190, 110, 255] : [255, 180, 90], w: big ? 8 : 4 });
+  if (!o.slam) G.flashes.push({ x, y, r: R * 2.4, life: 0.25, t: 0, col: o.skull ? [170, 90, 255] : [255, 170, 80] });
   const camD = dist(x, y, G.cam.x, G.cam.y), fall = clamp(1 - camD / 1600, 0, 1);
   addTrauma((0.12 + R / 260) * fall);
   Snd.boom(R / 100, fall * (o.skull ? 0.7 : 1));
@@ -1942,11 +2048,21 @@ function makeStorm(x, y) {
     cracks.push(pts);
   }
   const lumps = []; for (let k = 0; k < 16; k++) lumps.push(rr(-0.08, 0.1));
+  // Blocks that accrete around the Command Block as the Storm grows (appear from the core outward)
+  const cubes = [], cmats = [B_STONE, B_COBBLE, B_PLANKS, B_LOG, G_DIRT, G_GRASS, B_LEAVES, B_BRICKS, B_STONE, G_DIRT, B_SANDSTONE];
+  for (let k = 0; k < 96; k++) {
+    const a = rr(0, TAU), rad = Math.pow(rnd(), 0.6) * 0.95;
+    cubes.push({ x: Math.cos(a) * rad - 0.1, y: Math.sin(a) * rad * 0.9, s: rr(0.16, 0.32), t0: 0.2 + rad * 2.4 + rnd() * 0.8,
+      mat: cmats[ri(0, cmats.length - 1)], rot: rr(-0.4, 0.4), flesh: rnd() < 0.2, shade: ri(0, 2) });
+  }
+  cubes.sort((a, b) => a.t0 - b.t0);
+  const tents = [];
+  for (let k = 0; k < 8; k++) tents.push({ state: 'idle', t: 0, tx: 0, ty: 0, cd: 0, mode: 'slam', npc: null, z: 0, w: 0 });
   return {
     x, y, vx: 0, vy: 0, mu: 0, pending: 0, stage: 0, stageC: 0, label: 0, r: 30, rTarget: 30, hp: CFG.HP_EARLY, maxHp: CFG.HP_EARLY,
     facing: -Math.PI / 2, heads: [makeHead(0), makeHead(1), makeHead(2)], active: 0, stamina: CFG.STAMINA_MAX, chasing: false,
-    disabled: false, deadT: 0, reviveToFour: false, pulse: 0, swell: 0, debris, cracks, lumps, t: 0, beamStrength: 0,
-    touching: false, fireQueued: false, split: 0, segs: null, eyesDark: false, hole: 0,
+    disabled: false, deadT: 0, reviveToFour: false, pulse: 0, swell: 0, debris, cracks, lumps, cubes, tents, t: 0, beamStrength: 0,
+    touching: false, fireQueued: false, slamQueued: false, slamCd: 0, whackCd: 1, split: 0, segs: null, eyesDark: false, hole: 0,
   };
 }
 function stormPassiveR() { const s = G.storm; return s.disabled ? 0 : s.r * 1.35 + 26; }
@@ -2014,7 +2130,7 @@ function growthEvent(prevLabel, newLabel) {
   if (major) {
     const lbl = newLabel === 5.5 ? 'PHASE 5.5 — FORMIDIBOMBABLE' : 'PHASE ' + newLabel + ' — ' + entry.name;
     const subs = {
-      1: 'The Command Block pulls the world closer.', 2: 'HEAD 1 TRACTOR BEAM UNLOCKED — hold V', 3: 'The Command Block is hidden under flesh.',
+      1: 'Blocks cling to you. First tentacles — Q to slam!', 2: 'HEAD 1 TRACTOR BEAM UNLOCKED — hold V', 3: 'The Command Block is hidden under flesh.',
       4: 'HEADS 2 & 3 BEAMS • CHASE (SHIFT) • TERRAIN ABSORPTION', 5: 'The sky begins to darken.', 5.5: 'Jesse cannot hide from you any longer. CATCH JESSE.',
       7: 'The darkest sky. Your wounds glow.', 7.5: 'A hole tears open in your abdomen...',
     };
@@ -2086,6 +2202,7 @@ function updateStorm(dt, controls, noAttack) {
   const mw = G.mouseWorld;
   if (controls) s.facing = lerpAngle(s.facing, Math.atan2(mw.y - s.y, mw.x - s.x), Math.min(1, dt * 2.5));
   updateHeads(dt, controls);
+  updateTentacles(dt, controls && !noAttack);
   // --- head selection & skulls ---
   if (controls && !noAttack) {
     for (let k = 0; k < 3; k++) if (consumePressed('Digit' + (k + 1))) {
@@ -2110,17 +2227,22 @@ function updateStorm(dt, controls, noAttack) {
   for (const b of G.beams) applyBeam(b, dt);
   passiveAbsorb(dt);
   // wisps
-  if (rnd() < 0.6) { const a = rr(0, TAU), r = s.r * rr(0.6, 1.1); emit(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r, rr(-20, 20), rr(-40, -10), rr(0.6, 1.2), rr(3, 6), rnd() < 0.5 ? PC.dark : PC.flesh, 0, -10, 0.8); }
+  if (rnd() < 0.6 * clamp(s.stageC / 2, 0.15, 1)) { const a = rr(0, TAU), r = s.r * rr(0.6, 1.1); emit(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r, rr(-20, 20), rr(-40, -10), rr(0.6, 1.2), rr(3, 6), rnd() < 0.5 ? PC.dark : PC.flesh, 0, -10, 0.8); }
 }
 function updateHeads(dt, controls) {
   const s = G.storm, mw = G.mouseWorld;
   const baseCd = lerp(CFG.SKULL_CD_EARLY, CFG.SKULL_CD_LATE, clamp(s.stageC / 4, 0, 1));
+  // Phase 0-1: skulls sit in a row on the Wither's shoulder bone; from Phase 2 they spread out on necks.
+  const row = clamp(1 - (s.stageC - 1) / 1.5, 0, 1);
+  const cf = Math.cos(s.facing), sf = Math.sin(s.facing);
   for (let k = 0; k < 3; k++) {
     const h = s.heads[k], H = HEADS[k];
-    const a = s.facing + H.off;
-    const dd = s.r * H.dist;
-    h.hs = s.r * H.size * 0.55 + 3;
-    h.x = s.x + Math.cos(a) * dd; h.y = s.y + Math.sin(a) * dd;
+    const a = s.facing + H.off, dd = s.r * H.dist;
+    const ax = s.x + Math.cos(a) * dd, ay = s.y + Math.sin(a) * dd;
+    const side = k === 0 ? 0 : (k === 1 ? -1 : 1), fwd = s.r * (k === 0 ? 0.62 : 0.46), lat = side * s.r * 0.78;
+    const rx = s.x + cf * fwd - sf * lat, ry = s.y + sf * fwd + cf * lat;
+    h.x = lerp(ax, rx, row); h.y = lerp(ay, ry, row);
+    h.hs = s.r * H.size * (k === 0 ? 0.62 : 0.55) + 3;
     let target;
     if (s.disabled) target = h.aim + Math.sin(s.t + k) * 0.01;
     else if (k === s.active && controls) target = Math.atan2(mw.y - h.y, mw.x - h.x);
@@ -2138,6 +2260,72 @@ function updateHeads(dt, controls) {
     }
   }
 }
+function tentCount(sc) { return sc < 1 ? 0 : sc < 2 ? 2 : sc < 3 ? 3 : sc < 4 ? 4 : sc < 5 ? 5 : sc < 6 ? 7 : 8; }
+function tentLenF(sc) { return sc < 1 ? 0 : sc < 2 ? 0.35 + (sc - 1) * 0.4 : sc < 4 ? 0.8 + (sc - 2) * 0.25 : 1.3 + Math.min(1, (sc - 4) / 3) * 0.6; }
+function tentBaseAngle(facing, k, n) { return facing + Math.PI + (n > 1 ? (k / (n - 1) - 0.5) * 3.4 : 0); }
+function tentReach(s) { return s.r * 0.7 + s.r * tentLenF(s.stageC) * 1.2; }
+function startTentacle(T, mode, x, y, npc) { T.state = 'wind'; T.t = 0; T.mode = mode; T.tx = x; T.ty = y; T.npc = npc; }
+function pickTentacle(s, n, ang) {
+  let best = -1, bd = 1e9;
+  for (let k = 0; k < n; k++) {
+    const T = s.tents[k]; if (T.state !== 'idle' || T.cd > 0) continue;
+    const d = Math.abs(angDiff(tentBaseAngle(s.facing, k, n), ang)); if (d < bd) { bd = d; best = k; }
+  }
+  return best;
+}
+function updateTentacles(dt, controls) {
+  const s = G.storm, n = tentCount(s.stageC);
+  s.slamCd = Math.max(0, s.slamCd - dt); s.whackCd -= dt;
+  for (let k = 0; k < 8; k++) {
+    const T = s.tents[k];
+    T.cd = Math.max(0, T.cd - dt);
+    if (k >= n) { T.state = 'idle'; T.w = 0; T.z = 0; continue; }
+    if (T.state === 'idle') continue;
+    T.t += dt;
+    if (T.npc && !T.npc.dead) { T.tx = T.npc.x; T.ty = T.npc.y; }
+    const WIND = T.mode === 'whack' ? 0.16 : 0.26, STRIKE = 0.11, REC = 0.35, lift = s.r * 0.6;
+    if (T.state === 'wind') { const u = Math.min(1, T.t / WIND); T.w = 0.35 * u; T.z = u * lift; if (T.t >= WIND) { T.state = 'strike'; T.t = 0; } }
+    else if (T.state === 'strike') { const u = Math.min(1, T.t / STRIKE); T.w = lerp(0.35, 1, u); T.z = (1 - u) * lift; if (T.t >= STRIKE) { T.state = 'rec'; T.t = 0; tentacleImpact(T); } }
+    else { const u = Math.min(1, T.t / REC); T.w = 1 - u; T.z = 0; if (T.t >= REC) { T.state = 'idle'; T.w = 0; } }
+  }
+  if (s.disabled || !controls) { s.slamQueued = false; return; }
+  const reach = tentReach(s);
+  if (s.slamQueued) {
+    s.slamQueued = false;
+    if (n > 0 && s.slamCd <= 0) {
+      const mw = G.mouseWorld, dx = mw.x - s.x, dy = mw.y - s.y, d = Math.hypot(dx, dy) || 1;
+      const k = pickTentacle(s, n, Math.atan2(dy, dx));
+      if (k >= 0) {
+        const L = clamp(d, s.r * 0.8, reach);
+        startTentacle(s.tents[k], 'slam', s.x + dx / d * L, s.y + dy / d * L, null);
+        s.tents[k].cd = 2.2; s.slamCd = 0.3; Snd.whoosh();
+      }
+    } else if (n === 0 && G.toastCd <= 0) { addToast('No tentacles yet — reach Phase 1', COL.dim, 1.2); G.toastCd = 2; }
+  }
+  // tentacles whack nearby defenders on their own (Phase 2+)
+  if (s.stage >= 2 && s.whackCd <= 0 && n > 0) {
+    s.whackCd = 0.7;
+    let target = null, bd = 1e18;
+    const minD = (s.r * 0.6) ** 2;
+    queryNPCs(s.x, s.y, reach, (npc) => {
+      const kd = npc.def.kind; if (kd !== 'def' && kd !== 'ivor' && kd !== 'mob') return;
+      const dd = d2(s.x, s.y, npc.x, npc.y); if (dd < bd && dd > minD) { bd = dd; target = npc; }
+    });
+    if (target) {
+      const k = pickTentacle(s, n, Math.atan2(target.y - s.y, target.x - s.x));
+      if (k >= 0) { startTentacle(s.tents[k], 'whack', target.x, target.y, target); s.tents[k].cd = 1.6; }
+    }
+  }
+}
+function tentacleImpact(T) {
+  const s = G.storm;
+  G.stats.slams++;
+  if (T.mode === 'whack') {
+    const n = T.npc;
+    if (n && !n.dead) { const dx = n.x - s.x, dy = n.y - s.y, d = Math.hypot(dx, dy) || 1; hurtNPC(n, 45 + s.r * 0.2, dx / d * 420, dy / d * 420); }
+    explode(T.tx, T.ty, 22 + s.r * 0.12, 60, { slam: true });
+  } else explode(T.tx, T.ty, 30 + s.r * 0.3, 150 + s.r * 0.8, { slam: true });
+}
 function tryFireSkull(h) {
   const s = G.storm;
   if (s.disabled || h.injured > 0 || h.cd > 0) return;
@@ -2150,45 +2338,46 @@ function tryFireSkull(h) {
 }
 function addHeadBeam(h, strength, tx, ty) {
   const s = G.storm, H = HEADS[h.i];
-  const unlocked = headUnlocked(h.i);
-  if (!unlocked) {
+  if (!headUnlocked(h.i)) {
     if (strength < 1) return;
     const R = 38 + s.r * 0.7;
-    G.beams.push({ code: h.i, ox: h.mx, oy: h.my, dir: h.aim, len: R, half: Math.PI, ring: 0, ix: h.mx, iy: h.my, bubble: true,
+    G.beams.push({ code: h.i, ox: h.mx, oy: h.my, dir: h.aim, len: R, hw: 0, hitTx: -1, hitTy: -1, ix: h.mx, iy: h.my, bubble: true,
       pull: 0.6 * H.pull, power: (CFG.BEAM_POWER * 0.45 + s.r * 2) * H.pull, strength, main: true });
     return;
   }
-  const range = (160 + s.r * 1.9) * H.range;
-  const dMouse = dist(h.mx, h.my, tx, ty);
-  const len = clamp(dMouse, 60, range);
-  const dir = h.aim;
-  const half = H.half * (1 + s.stageC * 0.02);
-  const ix = h.mx + Math.cos(dir) * len, iy = h.my + Math.sin(dir) * len;
-  G.beams.push({ code: h.i, ox: h.mx, oy: h.my, dir, len, half, ring: Math.max(16, len * Math.tan(half)), ix, iy, bubble: false,
-    pull: H.pull * strength * (1 + s.stageC * 0.08), power: (CFG.BEAM_POWER + s.r * CFG.BEAM_POWER_R) * H.pull * strength, strength, main: true });
+  // Range grows with the Storm; the beam's width never does. It travels to the cursor or the first block in the way.
+  const range = (160 + s.r * 1.9) * H.range * (strength < 1 ? 0.6 : 1);
+  const want = strength < 1 ? range : clamp(dist(h.mx, h.my, tx, ty), 40, range);
+  G.beams.push(makeRayBeam(h.i, h.mx, h.my, h.aim, want, H.bw, H.pull * strength * (1 + s.stageC * 0.08),
+    (CFG.BEAM_POWER + s.r * CFG.BEAM_POWER_R) * H.pull * strength * 1.5, strength, true));
 }
 function applyBeam(b, dt) {
-  const samples = b.strength >= 1 ? 16 : 6;
-  const per = b.power * dt / samples * 3;
-  for (let k = 0; k < samples; k++) {
-    let x, y;
-    if (b.bubble) { const a = rnd() * TAU, r = Math.sqrt(rnd()) * b.len; x = b.ox + Math.cos(a) * r; y = b.oy + Math.sin(a) * r; }
-    else if (rnd() < 0.4) { const a = rnd() * TAU, r = Math.sqrt(rnd()) * b.ring; x = b.ix + Math.cos(a) * r; y = b.iy + Math.sin(a) * r; }
-    else { const d = b.len * Math.sqrt(0.05 + rnd() * 0.95), a = b.dir + (rnd() * 2 - 1) * b.half; x = b.ox + Math.cos(a) * d; y = b.oy + Math.sin(a) * d; }
-    const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
-    if (!inb(tx, ty)) continue;
-    const i = tidx(tx, ty);
-    if (block[i]) {
-      const dmg = exposed(tx, ty) ? per : per * 0.3;
-      if (damageTile(tx, ty, dmg)) detachTile(tx, ty, b.code);
-    } else if (ground[i] !== G_WATER && MATS[ground[i]].pullTo && rnd() < 0.18 * MATS[ground[i]].pull) {
-      detachGround(tx, ty, b.code);
+  if (b.bubble) {
+    const samples = 16, per = b.power * dt / samples * 3;
+    for (let k = 0; k < samples; k++) {
+      const a = rnd() * TAU, r = Math.sqrt(rnd()) * b.len, tx = Math.floor((b.ox + Math.cos(a) * r) / TILE), ty = Math.floor((b.oy + Math.sin(a) * r) / TILE);
+      if (!inb(tx, ty)) continue;
+      const i = tidx(tx, ty);
+      if (block[i]) { if (damageTile(tx, ty, exposed(tx, ty) ? per : per * 0.3)) detachTile(tx, ty, b.code); }
+      else if (ground[i] !== G_WATER && MATS[ground[i]].pullTo && rnd() < 0.18 * MATS[ground[i]].pull) detachGround(tx, ty, b.code);
+    }
+    return;
+  }
+  if (b.hitTx >= 0) {
+    // drill the block the ray hit; once it is torn away the ray reaches further next frame
+    const dmg = b.power * dt * (exposed(b.hitTx, b.hitTy) ? 1 : 0.7);
+    if (damageTile(b.hitTx, b.hitTy, dmg)) detachTile(b.hitTx, b.hitTy, b.code);
+    if (rnd() < 0.6) emit(b.ix + rr(-4, 4), b.iy + rr(-4, 4), rr(-60, 60), rr(-60, 60), 0.3, 4, PC.eye, 1);
+  } else {
+    const tx = Math.floor(b.ix / TILE), ty = Math.floor(b.iy / TILE);
+    if (inb(tx, ty)) {
+      const i = tidx(tx, ty), m = MATS[ground[i]];
+      if (ground[i] !== G_WATER && m.pullTo && rnd() < dt * 5 * m.pull * b.strength) detachGround(tx, ty, b.code);
     }
   }
-  if (b.strength >= 1 && !b.bubble && rnd() < 0.8) {
-    const t = rnd(), a = b.dir + (rnd() * 2 - 1) * b.half * 0.8;
-    const d = b.len * (1 - t);
-    emit(b.ox + Math.cos(a) * d, b.oy + Math.sin(a) * d, -Math.cos(b.dir) * 260, -Math.sin(b.dir) * 260, 0.5, rr(3, 7), rnd() < 0.5 ? PC.purple : PC.eye, 1, 0, 0.5);
+  if (b.strength >= 1 && rnd() < 0.8) {
+    const d = b.len * rnd(), off = rr(-b.hw, b.hw), c = Math.cos(b.dir), s = Math.sin(b.dir);
+    emit(b.ox + c * d - s * off, b.oy + s * d + c * off, -c * 300, -s * 300, 0.4, rr(3, 6), rnd() < 0.5 ? PC.purple : PC.eye, 1, 0, 0.5);
   }
 }
 function passiveAbsorb(dt) {
@@ -2294,9 +2483,8 @@ function updateProgeny(p, pi, dt) {
   }
   p.beamOn = !!p.target && dist(p.x, p.y, p.target.x, p.target.y) < 520;
   if (p.beamOn) {
-    const h = p.heads[0], len = clamp(dist(h.mx, h.my, p.target.x, p.target.y), 60, 480), half = 0.22;
-    G.beams.push({ code: 4 + pi * 3, ox: h.mx, oy: h.my, dir: h.aim, len, half, ring: Math.max(16, len * Math.tan(half)),
-      ix: h.mx + Math.cos(h.aim) * len, iy: h.my + Math.sin(h.aim) * len, bubble: false, pull: 0.8, power: 420, strength: 0.8, main: false });
+    const h = p.heads[0], len = clamp(dist(h.mx, h.my, p.target.x, p.target.y), 60, 480);
+    G.beams.push(makeRayBeam(4 + pi * 3, h.mx, h.my, h.aim, len, 9, 0.8, 520, 0.8, false));
   }
   p.skullCd -= dt;
   if (p.skullCd <= 0 && p.target && p.target.npc) {
@@ -2311,207 +2499,262 @@ function updateProgeny(p, pi, dt) {
 // STORM RENDERING (shared by the main Storm, progeny and cutscenes)
 // =====================================================================
 let fleshPattern = null;
-function drawTentacles(c, x, y, r, facing, count, lenF, t, thick) {
+function drawTentacles(c, o, count) {
+  const r = o.r;
   for (let k = 0; k < count; k++) {
-    const spread = count > 1 ? (k / (count - 1) - 0.5) * 2.6 : 0;
-    const base = facing + Math.PI + spread;
-    const segs = 12, L = r * lenF * (0.9 + 0.2 * Math.sin(k * 1.7));
-    let px = x + Math.cos(base) * r * 0.75, py = y + Math.sin(base) * r * 0.75, a = base;
-    const pts = [[px, py]];
-    for (let sgm = 1; sgm <= segs; sgm++) {
-      a = base + Math.sin(t * 1.6 + k * 1.3 + sgm * 0.45) * 0.35 * (sgm / segs + 0.3);
+    const base = tentBaseAngle(o.facing, k, count);
+    const T = o.tents ? o.tents[k] : null, w = T ? T.w : 0, z = T ? T.z : 0;
+    const segs = 12, L = r * o.tentLen * (0.9 + 0.2 * Math.sin(k * 1.7));
+    const bx = o.x + Math.cos(base) * r * 0.7, by = o.y + Math.sin(base) * r * 0.7;
+    const pts = [[bx, by, 0]];
+    let px = bx, py = by;
+    for (let sg = 1; sg <= segs; sg++) {
+      const a = base + Math.sin(o.t * 1.6 + k * 1.3 + sg * 0.45) * 0.35 * (sg / segs + 0.3);
       px += Math.cos(a) * L / segs; py += Math.sin(a) * L / segs;
-      pts.push([px, py]);
+      let qx = px, qy = py;
+      if (w > 0) {
+        const u = sg / segs, bend = Math.sin(u * Math.PI) * 0.12;
+        qx = lerp(px, lerp(bx, T.tx, u) - (T.ty - by) * bend, w); qy = lerp(py, lerp(by, T.ty, u) + (T.tx - bx) * bend, w);
+      }
+      pts.push([qx, qy, z * (sg / segs)]);
+    }
+    if (z > 2) {
+      c.strokeStyle = 'rgba(0,0,0,0.28)'; c.lineWidth = r * 0.12; c.lineCap = 'round';
+      c.beginPath(); for (let sg = 0; sg <= segs; sg++) { if (sg) c.lineTo(pts[sg][0], pts[sg][1]); else c.moveTo(pts[sg][0], pts[sg][1]); } c.stroke();
     }
     c.lineCap = 'round';
-    for (let sgm = 0; sgm < segs; sgm++) {
-      const w = (r * 0.2 * thick) * (1 - sgm / segs) + 1.5;
-      c.strokeStyle = sgm % 3 === 1 ? '#150a20' : COL.body; c.lineWidth = w;
-      c.beginPath(); c.moveTo(pts[sgm][0], pts[sgm][1]); c.lineTo(pts[sgm + 1][0], pts[sgm + 1][1]); c.stroke();
-      if (sgm % 2 === 0 && w > 4) { c.fillStyle = COL.flesh; c.fillRect(pts[sgm][0] - 1.2, pts[sgm][1] - 1.2, 2.4, 2.4); }
+    for (let sg = 0; sg < segs; sg++) {
+      const wd = (r * 0.2 * o.tentThick) * (1 - sg / segs) + 1.5;
+      c.strokeStyle = sg % 3 === 1 ? '#150a20' : COL.body; c.lineWidth = wd;
+      c.beginPath(); c.moveTo(pts[sg][0], pts[sg][1] - pts[sg][2]); c.lineTo(pts[sg + 1][0], pts[sg + 1][1] - pts[sg + 1][2]); c.stroke();
+      if (sg % 2 === 0 && wd > 4) { c.fillStyle = T && T.state === 'wind' ? '#ff5ad0' : COL.flesh; c.fillRect(pts[sg][0] - 1.4, pts[sg][1] - pts[sg][2] - 1.4, 2.8, 2.8); }
     }
   }
 }
 function drawHead(c, h, H, opts) {
-  const s = h.hs;
+  const s = h.hs, style = opts.style || 'storm';
   const shx = h.shake > 0 ? rr(-2, 2) : 0, shy = h.shake > 0 ? rr(-2, 2) : 0;
   c.save();
   c.translate(h.x + shx + (h.injured > 0 ? rr(-1.5, 1.5) : 0), h.y + shy);
   c.rotate(h.aim);
-  // neck shadow & skull
-  c.fillStyle = h.injured > 0 ? '#3a0a12' : '#0d0714';
-  c.fillRect(-s, -s, s * 2, s * 2);
-  c.fillStyle = h.injured > 0 ? '#5a1020' : '#1b0d2a';
-  c.fillRect(-s, -s, s * 2, s * 0.35);
-  c.fillRect(-s, -s, s * 0.3, s * 2);
-  // jaw (lower) opens forward
   const jo = h.jaw * s * 0.7;
-  c.fillStyle = '#0a0510';
-  c.fillRect(s * 0.55 + jo, -s * 0.85, s * 0.5, s * 1.7);
-  // teeth
-  c.fillStyle = '#e8e0f0';
-  const tn = 5;
-  for (let k = 0; k < tn; k++) {
-    const ty = -s * 0.75 + (k / (tn - 1)) * s * 1.5;
-    c.fillRect(s * 0.85, ty - s * 0.07, s * 0.18, s * 0.14);
-    c.fillRect(s * 0.55 + jo, ty - s * 0.07, s * 0.16, s * 0.14);
+  if (style === 'storm') { c.fillStyle = '#0a0510'; c.fillRect(s * 0.55 + jo, -s * 0.85, s * 0.5, s * 1.7); }
+  // blocky Wither skull
+  c.drawImage(TEX_WSKULL, -s, -s, s * 2, s * 2);
+  c.fillStyle = 'rgba(255,255,255,0.10)'; c.fillRect(-s, -s, s * 2, s * 0.16); c.fillRect(-s, -s, s * 0.16, s * 2);
+  c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(-s, s * 0.84, s * 2, s * 0.16);
+  if (h.injured > 0) { c.fillStyle = 'rgba(200,20,40,0.45)'; c.fillRect(-s, -s, s * 2, s * 2); }
+  let eyeX, eyeY;
+  if (style === 'wither') {
+    // a plain Wither face: two slit eyes and a mouth (the eyes start glowing purple as the Storm awakens)
+    c.fillStyle = opts.eyesDark ? '#303030' : (opts.awake ? (h.injured > 0 ? '#ff3030' : H.eye) : '#a8a8a8');
+    c.fillRect(s * 0.5, -s * 0.72, s * 0.26, s * 0.46);
+    c.fillRect(s * 0.5, s * 0.26, s * 0.26, s * 0.46);
+    c.fillStyle = '#9a9a9a'; c.fillRect(s * 0.84, -s * 0.6, s * 0.16, s * 1.2);
+    eyeX = s * 0.63; eyeY = 0;
+  } else {
+    c.fillStyle = '#e8e0f0';
+    for (let k = 0; k < 5; k++) {
+      const ty = -s * 0.75 + (k / 4) * s * 1.5;
+      c.fillRect(s * 0.85, ty - s * 0.07, s * 0.18, s * 0.14);
+      c.fillRect(s * 0.55 + jo, ty - s * 0.07, s * 0.16, s * 0.14);
+    }
+    if (h.jaw > 0.1) { c.fillStyle = COL.flesh; c.fillRect(s * 0.9, -s * 0.6, Math.max(0, jo * 0.9), s * 1.2); }
+    if (H.label === '2') { c.strokeStyle = '#8a2a4a'; c.lineWidth = Math.max(1, s * 0.08); c.beginPath(); c.moveTo(s * 0.6, -s * 0.5); c.lineTo(s * 0.2, -s * 0.1); c.lineTo(s * 0.5, s * 0.3); c.stroke(); }
+    if (H.label === '3') {
+      c.strokeStyle = '#1b0d2a'; c.lineWidth = Math.max(1.5, s * 0.14);
+      for (let k = -1; k <= 1; k++) { c.beginPath(); c.moveTo(-s * 0.9, k * s * 0.5); c.quadraticCurveTo(-s * 1.6, k * s * 0.9 + Math.sin(G.time * 3 + k) * s * 0.4, -s * 2.1, k * s * 1.2); c.stroke(); }
+    }
+    // one glowing purple eye
+    c.fillStyle = opts.eyesDark ? '#2a1a3a' : (h.injured > 0 ? '#ff3030' : H.eye);
+    c.fillRect(s * 0.15, -s * 0.28, s * 0.45, s * 0.45);
+    if (!opts.eyesDark) { c.fillStyle = '#ffffff'; c.fillRect(s * 0.35, -s * 0.2, s * 0.14, s * 0.14); }
+    eyeX = s * 0.38; eyeY = -s * 0.05;
   }
-  if (h.jaw > 0.1) { c.fillStyle = COL.flesh; c.fillRect(s * 0.9, -s * 0.6, jo * 0.9 - s * 0.1 > 0 ? jo * 0.9 : 0, s * 1.2); }
-  // head identity
-  if (H.label === '2') { c.strokeStyle = '#8a2a4a'; c.lineWidth = Math.max(1, s * 0.08); c.beginPath(); c.moveTo(s * 0.6, -s * 0.5); c.lineTo(s * 0.2, -s * 0.1); c.lineTo(s * 0.5, s * 0.3); c.stroke(); }
-  if (H.label === '3') {
-    c.strokeStyle = '#1b0d2a'; c.lineWidth = Math.max(1.5, s * 0.14);
-    for (let k = -1; k <= 1; k++) {
-      c.beginPath(); c.moveTo(-s * 0.9, k * s * 0.5);
-      c.quadraticCurveTo(-s * 1.6, k * s * 0.9 + Math.sin(G.time * 3 + k) * s * 0.4, -s * 2.1, k * s * 1.2);
-      c.stroke();
+  c.restore();
+  h.ex = h.x + Math.cos(h.aim) * eyeX - Math.sin(h.aim) * eyeY;
+  h.ey = h.y + Math.sin(h.aim) * eyeX + Math.cos(h.aim) * eyeY;
+}
+const CUBE_SHADES = ['#0b0711', '#120a1c', '#1a0f28'];
+function drawStormBody(c, o) {
+  // Phase 0 is a Wither built on a Command Block; blocks accrete around it and wither into a flesh-cracked mass.
+  const sc = o.stageC, r = o.r * (1 + o.swell * 0.12 + o.pulse * 0.04), x = o.x, y = o.y, t = o.t;
+  const cf = Math.cos(o.facing), sf = Math.sin(o.facing);
+  const massA = clamp((sc - 1.3) / 1.1, 0, 1), bone = clamp(1 - (sc - 1.0) / 1.3, 0, 1);
+  c.fillStyle = 'rgba(8,0,16,0.38)';
+  c.beginPath(); c.ellipse(x + r * 0.3, y + r * 0.45, r * (0.75 + 0.35 * massA), r * (0.55 + 0.25 * massA), 0, 0, TAU); c.fill();
+  if (o.tentacles > 0) drawTentacles(c, o, o.tentacles);
+  const neckA = clamp((sc - 1.2) / 1.0, 0, 1);
+  if (neckA > 0) for (const h of o.heads) {
+    c.strokeStyle = COL.body; c.lineWidth = h.hs * 1.15 * neckA; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(x + (h.x - x) * 0.25, y + (h.y - y) * 0.25); c.lineTo(h.x, h.y); c.stroke();
+  }
+  if (massA > 0) {
+    c.globalAlpha = massA;
+    const mr = r * (0.6 + 0.4 * massA);
+    if (sc >= 1.8) {
+      const hb = clamp((sc - 1.8) / 2, 0, 1) * 0.55;
+      c.fillStyle = fleshPattern || COL.body;
+      c.beginPath(); c.arc(x - cf * r * 0.45, y - sf * r * 0.45, r * hb + 1, 0, TAU); c.fill();
+    }
+    if (fleshPattern && fleshPattern.setTransform) { const ps = Math.max(1, r / 22); fleshPattern.setTransform(new DOMMatrix([ps, 0, 0, ps, x, y])); }
+    c.fillStyle = fleshPattern || COL.body;
+    c.beginPath();
+    for (let k = 0; k <= 28; k++) {
+      const a = (k / 28) * TAU, lump = o.lumps[k % o.lumps.length];
+      const rr2 = mr * (1 + 0.09 * Math.sin(3 * a + t * 0.7) + 0.06 * Math.sin(7 * a - t * 1.3) + lump + (o.torn ? 0.12 * Math.sin(11 * a) : 0));
+      const px = x + Math.cos(a) * rr2, py = y + Math.sin(a) * rr2 * 0.92;
+      if (k === 0) c.moveTo(px, py); else c.lineTo(px, py);
+    }
+    c.closePath(); c.fill();
+    c.strokeStyle = COL.shadow; c.lineWidth = Math.max(1, r * 0.03); c.stroke();
+    c.globalAlpha = 1;
+  }
+  if (bone > 0) {
+    // Wither skeleton: tail/spine and the shoulder bone the skulls sit on
+    c.save(); c.globalAlpha = bone; c.translate(x, y); c.rotate(o.facing);
+    c.fillStyle = '#242424';
+    c.fillRect(-r * 1.0, -r * 0.07, r * 0.95, r * 0.14);
+    c.fillRect(-r * 1.0, -r * 0.12, r * 0.16, r * 0.24);
+    c.fillRect(r * 0.28, -r * 0.82, r * 0.16, r * 1.64);
+    c.fillStyle = '#3c3c3c'; c.fillRect(r * 0.28, -r * 0.82, r * 0.16, r * 0.05); c.fillRect(-r * 1.0, -r * 0.07, r * 0.95, r * 0.03);
+    c.restore(); c.globalAlpha = 1;
+  }
+  if (o.cubes) {
+    const withered = clamp((sc - 1.0) / 1.6, 0, 1);
+    for (const q of o.cubes) {
+      const k = clamp((sc - q.t0) / 0.35, 0, 1); if (k <= 0) break;
+      const sz = q.s * r * k, px = x + (q.x * cf - q.y * sf) * r, py = y + (q.x * sf + q.y * cf) * r;
+      c.save(); c.translate(px, py); c.rotate(o.facing + q.rot);
+      if (withered < 1) c.drawImage(TEX[q.mat], -sz / 2, -sz / 2, sz, sz);
+      if (withered > 0) {
+        const flesh = q.flesh && sc > 2.3;
+        c.globalAlpha = flesh ? clamp((sc - 2.3) / 0.6, 0, 1) * 0.8 : withered * 0.93;
+        c.fillStyle = flesh ? '#3e1478' : CUBE_SHADES[q.shade];
+        c.fillRect(-sz / 2, -sz / 2, sz, sz);
+        c.globalAlpha = 1;
+      }
+      c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(-sz / 2, -sz / 2, sz, sz * 0.16);
+      c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(-sz / 2, sz * 0.34, sz, sz * 0.16);
+      c.restore();
     }
   }
-  // one glowing eye
-  const eyeCol = opts.eyesDark ? '#2a1a3a' : (h.injured > 0 ? '#ff3030' : H.eye);
-  c.fillStyle = eyeCol;
-  c.fillRect(s * 0.15, -s * 0.28, s * 0.45, s * 0.45);
-  if (!opts.eyesDark) { c.fillStyle = '#ffffff'; c.fillRect(s * 0.35, -s * 0.2, s * 0.14, s * 0.14); }
-  c.restore();
-  h.ex = h.x + Math.cos(h.aim) * s * 0.38 - Math.sin(h.aim) * (-s * 0.05);
-  h.ey = h.y + Math.sin(h.aim) * s * 0.38 + Math.cos(h.aim) * (-s * 0.05);
-}
-function drawStormBody(c, o) {
-  // o: {x,y,r,facing,t,stageC,heads,active,eyesDark,cbAlpha,tentacles,torn,swell,pulse,debris,cracks,lumps,hole,split}
-  const r = o.r * (1 + o.swell * 0.12 + o.pulse * 0.04);
-  const x = o.x, y = o.y, t = o.t;
-  // ground shadow
-  c.fillStyle = 'rgba(8,0,16,0.38)';
-  c.beginPath(); c.ellipse(x + r * 0.3, y + r * 0.45, r * 1.1, r * 0.8, 0, 0, TAU); c.fill();
-  // tentacles
-  const tc = o.tentacles;
-  if (tc > 0) drawTentacles(c, x, y, r, o.facing, tc, o.tentLen, t, o.torn ? 0.8 : 1);
-  // necks
-  for (const h of o.heads) {
-    c.strokeStyle = COL.body; c.lineWidth = h.hs * 1.2; c.lineCap = 'round';
-    c.beginPath(); c.moveTo(x + (h.x - x) * 0.3, y + (h.y - y) * 0.3); c.lineTo(h.x, h.y); c.stroke();
+  const crackA = clamp((sc - 2.3) / 0.8, 0, 1);
+  if (crackA > 0) {
+    const glowA = clamp(0.55 + 0.35 * Math.sin(t * 2.2) + o.pulse * 0.4, 0, 1);
+    c.lineCap = 'round';
+    for (const pts of o.cracks) {
+      c.beginPath();
+      for (let j = 0; j < pts.length; j++) { const px = x + pts[j][0] * r, py = y + pts[j][1] * r * 0.92; if (j === 0) c.moveTo(px, py); else c.lineTo(px, py); }
+      c.globalAlpha = crackA; c.strokeStyle = COL.flesh; c.lineWidth = Math.max(1.5, r * 0.06); c.stroke();
+      c.strokeStyle = 'rgba(200,130,255,' + glowA * 0.8 + ')'; c.lineWidth = Math.max(0.8, r * 0.02); c.stroke();
+    }
+    c.globalAlpha = 1;
   }
-  // hunchback lobe
-  if (o.stageC >= 1.5) {
-    const hb = clamp((o.stageC - 1.5) / 2, 0, 1) * 0.55;
-    const bx = x - Math.cos(o.facing) * r * 0.45, by = y - Math.sin(o.facing) * r * 0.45;
-    c.fillStyle = fleshPattern || COL.body;
-    c.beginPath(); c.arc(bx, by, r * hb + 1, 0, TAU); c.fill();
-  }
-  // main blob
-  if (fleshPattern && fleshPattern.setTransform) {
-    const ps = Math.max(1, r / 22);
-    fleshPattern.setTransform(new DOMMatrix([ps, 0, 0, ps, x, y]));
-  }
-  c.fillStyle = fleshPattern || COL.body;
-  c.beginPath();
-  const N = 28;
-  for (let k = 0; k <= N; k++) {
-    const a = (k / N) * TAU;
-    const lump = o.lumps[k % o.lumps.length];
-    const rr2 = r * (1 + 0.09 * Math.sin(3 * a + t * 0.7) + 0.06 * Math.sin(7 * a - t * 1.3) + lump + (o.torn ? 0.12 * Math.sin(11 * a) : 0));
-    const px = x + Math.cos(a) * rr2, py = y + Math.sin(a) * rr2 * 0.92;
-    if (k === 0) c.moveTo(px, py); else c.lineTo(px, py);
-  }
-  c.closePath(); c.fill();
-  c.strokeStyle = COL.shadow; c.lineWidth = Math.max(1, r * 0.03); c.stroke();
-  // exposed purple flesh cracks
-  const glowA = 0.55 + 0.35 * Math.sin(t * 2.2) + o.pulse * 0.4;
-  c.lineCap = 'round';
-  for (let k = 0; k < o.cracks.length; k++) {
-    const pts = o.cracks[k];
-    c.strokeStyle = COL.flesh; c.lineWidth = Math.max(1.5, r * 0.06);
-    c.beginPath();
-    for (let j = 0; j < pts.length; j++) { const px = x + pts[j][0] * r, py = y + pts[j][1] * r * 0.92; if (j === 0) c.moveTo(px, py); else c.lineTo(px, py); }
-    c.stroke();
-    c.strokeStyle = 'rgba(200,130,255,' + clamp(glowA, 0, 1) * 0.8 + ')'; c.lineWidth = Math.max(0.8, r * 0.02); c.stroke();
-  }
-  // wounds (Phase 7)
-  if (o.stageC >= 6.8) {
+  if (sc >= 6.8) {
     for (let k = 0; k < 6; k++) {
       const a = k * 1.1 + 0.4, rd = r * (0.35 + (k % 3) * 0.18);
       c.fillStyle = 'rgba(255,120,230,' + (0.5 + 0.4 * Math.sin(t * 3 + k)) + ')';
       c.fillRect(x + Math.cos(a) * rd - r * 0.04, y + Math.sin(a) * rd - r * 0.04, r * 0.08, r * 0.08);
     }
   }
-  // abdomen hole (Phase 7.5)
   if (o.hole > 0) {
-    const hx = x - Math.cos(o.facing) * r * 0.2, hy = y - Math.sin(o.facing) * r * 0.2, hr = r * 0.22 * o.hole;
+    const hx = x - cf * r * 0.2, hy = y - sf * r * 0.2, hr = r * 0.22 * o.hole;
     c.fillStyle = '#ff5ad0'; c.beginPath(); c.arc(hx, hy, hr * 1.25, 0, TAU); c.fill();
     c.fillStyle = '#2a0020'; c.beginPath(); c.arc(hx, hy, hr, 0, TAU); c.fill();
     c.fillStyle = '#5b1fa8'; c.beginPath(); c.arc(hx, hy, hr * 0.5, 0, TAU); c.fill();
   }
-  // Command Block in the chest
+  // the Command Block, exposed in the chest and wrapped by the Wither's ribs
   const cbA = o.cbAlpha;
   if (cbA > 0.01) {
-    const cs = Math.max(8, r * 0.3);
-    const cx = x + Math.cos(o.facing) * r * 0.05, cy = y + Math.sin(o.facing) * r * 0.05;
-    c.save(); c.globalAlpha = cbA;
-    c.translate(cx, cy); c.rotate(o.facing + Math.PI / 2);
+    const cs = Math.max(8, r * (0.62 - 0.22 * clamp(sc / 2.5, 0, 1)));
+    c.save(); c.globalAlpha = cbA; c.translate(x - cf * r * 0.05, y - sf * r * 0.05); c.rotate(o.facing + Math.PI / 2);
     c.fillStyle = COL.cbDark; c.fillRect(-cs / 2 + 2, -cs / 2 + 2, cs, cs);
     c.drawImage(TEX[B_COMMAND], -cs / 2, -cs / 2, cs, cs);
     c.strokeStyle = 'rgba(190,110,255,' + (0.5 + 0.5 * Math.sin(t * 4)) + ')'; c.lineWidth = Math.max(1, cs * 0.08);
     c.strokeRect(-cs / 2, -cs / 2, cs, cs);
-    c.strokeStyle = '#2a1030'; c.lineWidth = Math.max(1, cs * 0.05);
-    c.beginPath(); c.moveTo(-cs * 0.3, -cs * 0.4); c.lineTo(0, 0); c.lineTo(cs * 0.2, cs * 0.35); c.stroke();
-    c.restore();
+    if (bone > 0) {
+      c.globalAlpha = cbA * bone;
+      for (let k = -1; k <= 1; k++) {
+        c.fillStyle = '#2b2b2b'; c.fillRect(-cs * 0.64, k * cs * 0.32 - cs * 0.07, cs * 1.28, cs * 0.14);
+        c.fillStyle = '#474747'; c.fillRect(-cs * 0.64, k * cs * 0.32 - cs * 0.07, cs * 1.28, cs * 0.035);
+      }
+    }
+    c.restore(); c.globalAlpha = 1;
   }
-  // orbiting debris ring
-  if (o.debris) {
+  if (o.debris && sc >= 0.8) {
     for (const d of o.debris) {
       const a = d.a + t * d.sp * 0.6, rd = r * d.rad;
-      const px = x + Math.cos(a) * rd, py = y + Math.sin(a) * rd * 0.85 - d.z * 8;
-      const sz = Math.max(3, r * 0.07 * d.sz);
+      const px = x + Math.cos(a) * rd, py = y + Math.sin(a) * rd * 0.85 - d.z * 8, sz = Math.max(3, r * 0.07 * d.sz);
       c.drawImage(TEX[d.mat] || TEX[B_STONE], px - sz / 2, py - sz / 2, sz, sz);
     }
   }
-  // heads
+  const style = sc < 1.8 ? 'wither' : 'storm', awake = sc >= 0.9;
   for (let k = 0; k < o.heads.length; k++) {
     const h = o.heads[k];
-    drawHead(c, h, HEADS[k], o);
-    if (o.showUI) {
-      if (k === o.active && !o.eyesDark) {
-        c.strokeStyle = 'rgba(224,179,255,' + (0.55 + 0.3 * Math.sin(G.time * 6)) + ')'; c.lineWidth = Math.max(1.5, h.hs * 0.12);
-        c.beginPath(); c.arc(h.x, h.y, h.hs * 1.55, 0, TAU); c.stroke();
-      }
-      if (h.cd > 0 && !o.eyesDark) {
-        c.strokeStyle = 'rgba(255,255,255,0.75)'; c.lineWidth = Math.max(1.5, h.hs * 0.1);
-        c.beginPath(); c.arc(h.x, h.y, h.hs * 1.8, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - h.cd / h.cdMax)); c.stroke();
-      }
-      if (h.injured > 0) {
-        c.strokeStyle = 'rgba(255,60,60,0.8)'; c.lineWidth = Math.max(1.5, h.hs * 0.12);
-        c.beginPath(); c.arc(h.x, h.y, h.hs * 1.8, -Math.PI / 2, -Math.PI / 2 + TAU * (h.injured / CFG.INJURY_TIME)); c.stroke();
-      }
+    drawHead(c, h, HEADS[k], { eyesDark: o.eyesDark, style, awake });
+    if (!o.showUI) continue;
+    if (k === o.active && !o.eyesDark) {
+      c.strokeStyle = 'rgba(224,179,255,' + (0.55 + 0.3 * Math.sin(G.time * 6)) + ')'; c.lineWidth = Math.max(1.5, h.hs * 0.12);
+      c.beginPath(); c.arc(h.x, h.y, h.hs * 1.55, 0, TAU); c.stroke();
+    }
+    if (h.cd > 0 && !o.eyesDark) {
+      c.strokeStyle = 'rgba(255,255,255,0.75)'; c.lineWidth = Math.max(1.5, h.hs * 0.1);
+      c.beginPath(); c.arc(h.x, h.y, h.hs * 1.8, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - h.cd / h.cdMax)); c.stroke();
+    }
+    if (h.injured > 0) {
+      c.strokeStyle = 'rgba(255,60,60,0.8)'; c.lineWidth = Math.max(1.5, h.hs * 0.12);
+      c.beginPath(); c.arc(h.x, h.y, h.hs * 1.8, -Math.PI / 2, -Math.PI / 2 + TAU * (h.injured / CFG.INJURY_TIME)); c.stroke();
     }
   }
 }
 function stormDrawOpts(s) {
-  const tc = s.stageC < 1 ? 0 : s.stageC < 2 ? 2 : s.stageC < 4 ? 3 : 5;
-  const tl = s.stageC < 1 ? 0 : s.stageC < 2 ? 0.4 + (s.stageC - 1) * 0.4 : s.stageC < 4 ? 0.9 + (s.stageC - 2) * 0.25 : 1.4 + Math.min(1, (s.stageC - 4) / 3) * 0.5;
   return { x: s.x, y: s.y, r: s.r, facing: s.facing, t: s.t, stageC: s.stageC, heads: s.heads, active: s.active, eyesDark: s.disabled || s.eyesDark,
-    cbAlpha: clamp((3 - s.stageC) / 0.6, 0, 1), tentacles: tc, tentLen: tl, torn: G.fbombDone, swell: s.swell, pulse: s.pulse,
-    debris: s.debris, cracks: s.cracks, lumps: s.lumps, hole: s.hole, showUI: true };
+    cbAlpha: clamp((3 - s.stageC) / 0.6, 0, 1), tentacles: tentCount(s.stageC), tentLen: tentLenF(s.stageC), tentThick: G.fbombDone ? 0.85 : 1,
+    tents: s.tents, torn: G.fbombDone, swell: s.swell, pulse: s.pulse, debris: s.debris, cracks: s.cracks, lumps: s.lumps, cubes: s.cubes, hole: s.hole, showUI: true };
 }
 function drawStormGlow(c, o, alphaMul) {
   // additive: eyes, command block pulse, night-shine
   const am = alphaMul === undefined ? 1 : alphaMul;
-  if (!o.eyesDark) {
+  const sc = o.stageC === undefined ? 6 : o.stageC;
+  if (!o.eyesDark && sc >= 0.9) {
     for (let k = 0; k < o.heads.length; k++) {
-      const h = o.heads[k], H = HEADS[k], gs = h.hs * (k === o.active ? 3.4 : 2.4);
+      const h = o.heads[k], H = HEADS[k], gs = h.hs * (k === o.active ? 3.4 : 2.4) * (sc < 1.8 ? 0.6 : 1);
       c.globalAlpha = 0.8 * am;
       c.drawImage(glowSprite(h.injured > 0 ? [255, 40, 40] : H.eyeGlow), h.ex - gs, h.ey - gs, gs * 2, gs * 2);
     }
   }
   const cbPulse = 0.5 + 0.5 * Math.sin(G.time * 4);
   const cbA = Math.max(o.cbAlpha, o.cbForce || 0);
-  const gs = o.r * (0.8 + cbPulse * 0.3);
-  c.globalAlpha = (0.25 + cbA * 0.5) * am * (o.eyesDark && !o.cbForce ? 0.3 : 1);
+  const early = clamp((sc - 0.5) / 1.5, 0.25, 1);
+  const gs = o.r * (0.55 + cbPulse * 0.25);
+  c.globalAlpha = (0.12 + cbA * 0.25) * early * am * (o.eyesDark && !o.cbForce ? 0.3 : 1);
   c.drawImage(glowSprite([170, 80, 255]), o.x - gs, o.y - gs, gs * 2, gs * 2);
-  c.globalAlpha = 0.18 * am;
+  c.globalAlpha = 0.18 * am * early;
   const ns = o.r * 2.2;
   c.drawImage(glowSprite([110, 40, 200]), o.x - ns, o.y - ns, ns * 2, ns * 2);
   if (o.hole > 0) { c.globalAlpha = 0.7 * am; const hs = o.r * 0.6; const hx = o.x - Math.cos(o.facing) * o.r * 0.2, hy = o.y - Math.sin(o.facing) * o.r * 0.2; c.drawImage(glowSprite([255, 90, 210]), hx - hs, hy - hs, hs * 2, hs * 2); }
   c.globalAlpha = 1;
+}
+function drawBeamRay(c, ox, oy, dir, len, hw, st, hit, t) {
+  c.save(); c.translate(ox, oy); c.rotate(dir);
+  const g1 = c.createLinearGradient(0, 0, len, 0);
+  g1.addColorStop(0, 'rgba(200,130,255,' + 0.35 * st + ')'); g1.addColorStop(1, 'rgba(140,60,240,' + 0.22 * st + ')');
+  c.fillStyle = g1; c.fillRect(0, -hw * 1.9, len, hw * 3.8);
+  c.fillStyle = 'rgba(190,120,255,' + 0.5 * st + ')'; c.fillRect(0, -hw, len, hw * 2);
+  c.fillStyle = 'rgba(245,225,255,' + 0.75 * st + ')'; c.fillRect(0, -hw * 0.22, len, hw * 0.44);
+  c.fillStyle = 'rgba(255,240,255,' + 0.55 * st + ')';
+  const n = Math.max(1, Math.ceil(len / 60));
+  for (let k = 0; k < n; k++) { const px = len - ((t * 360 + k * 60) % Math.max(60, len)); if (px > 0) c.fillRect(px, -hw, 3, hw * 2); }
+  c.strokeStyle = 'rgba(30,0,50,' + 0.45 * st + ')'; c.lineWidth = Math.max(1.5, hw * 0.25);
+  c.beginPath();
+  for (let k = 0; k <= 24; k++) { const u = k / 24, px = u * len, py = Math.sin(u * len * 0.08 - t * 10) * hw * 0.8; if (k) c.lineTo(px, py); else c.moveTo(px, py); }
+  c.stroke();
+  c.restore();
+  const ix = ox + Math.cos(dir) * len, iy = oy + Math.sin(dir) * len, pr = hw * (1.8 + 0.3 * Math.sin(t * 12));
+  c.globalAlpha = 0.75 * st; c.drawImage(glowSprite(hit ? [255, 150, 255] : [170, 80, 255]), ix - pr * 2.2, iy - pr * 2.2, pr * 4.4, pr * 4.4); c.globalAlpha = 1;
+  c.strokeStyle = 'rgba(224,179,255,' + 0.8 * st + ')'; c.lineWidth = 2;
+  c.beginPath(); c.arc(ix, iy, pr, 0, TAU); c.stroke();
 }
 function drawBeams(c) {
   for (const b of G.beams) {
@@ -2522,38 +2765,7 @@ function drawBeams(c) {
       c.beginPath(); c.arc(b.ox, b.oy, b.len * (0.6 + 0.4 * ((G.time * 2) % 1)), 0, TAU); c.stroke();
       c.globalAlpha = 1; continue;
     }
-    const st = b.strength;
-    const l1x = b.ox + Math.cos(b.dir - b.half) * b.len, l1y = b.oy + Math.sin(b.dir - b.half) * b.len;
-    const l2x = b.ox + Math.cos(b.dir + b.half) * b.len, l2y = b.oy + Math.sin(b.dir + b.half) * b.len;
-    const gr = c.createLinearGradient(b.ox, b.oy, b.ix, b.iy);
-    gr.addColorStop(0, 'rgba(200,130,255,' + 0.55 * st + ')'); gr.addColorStop(1, 'rgba(120,40,220,' + 0.22 * st + ')');
-    c.fillStyle = gr;
-    c.beginPath(); c.moveTo(b.ox, b.oy); c.lineTo(l1x, l1y); c.lineTo(l2x, l2y); c.closePath(); c.fill();
-    // rotating energy bands
-    c.strokeStyle = 'rgba(230,190,255,' + 0.35 * st + ')'; c.lineWidth = 2;
-    for (let k = 0; k < 4; k++) {
-      const u = ((G.time * 1.4 + k / 4) % 1), d = b.len * (1 - u), w = d * Math.tan(b.half);
-      c.beginPath();
-      c.moveTo(b.ox + Math.cos(b.dir) * d - Math.sin(b.dir) * w, b.oy + Math.sin(b.dir) * d + Math.cos(b.dir) * w);
-      c.lineTo(b.ox + Math.cos(b.dir) * d + Math.sin(b.dir) * w, b.oy + Math.sin(b.dir) * d - Math.cos(b.dir) * w);
-      c.stroke();
-    }
-    // spiral line
-    c.strokeStyle = 'rgba(20,0,40,' + 0.4 * st + ')'; c.lineWidth = 3;
-    c.beginPath();
-    for (let k = 0; k <= 20; k++) {
-      const u = k / 20, d = b.len * u, w = d * Math.tan(b.half) * Math.sin(u * 12 - G.time * 8);
-      const px = b.ox + Math.cos(b.dir) * d - Math.sin(b.dir) * w, py = b.oy + Math.sin(b.dir) * d + Math.cos(b.dir) * w;
-      if (k === 0) c.moveTo(px, py); else c.lineTo(px, py);
-    }
-    c.stroke();
-    // ground ring
-    const pr = b.ring * (0.85 + 0.15 * Math.sin(G.time * 8));
-    c.globalAlpha = 0.5 * st; c.drawImage(glowSprite([170, 80, 255]), b.ix - pr * 1.5, b.iy - pr * 1.5, pr * 3, pr * 3);
-    c.globalAlpha = 1;
-    c.strokeStyle = 'rgba(224,179,255,' + 0.7 * st + ')'; c.lineWidth = 3;
-    c.beginPath(); c.arc(b.ix, b.iy, pr, 0, TAU); c.stroke();
-    c.beginPath(); c.arc(b.ix, b.iy, pr * ((G.time * 1.5) % 1), 0, TAU); c.stroke();
+    drawBeamRay(c, b.ox, b.oy, b.dir, b.len, b.hw, b.strength, b.hitTx >= 0, G.time);
   }
 }
 
@@ -2579,7 +2791,7 @@ function heroBeamCheck(n, dt) {
   const s = G.storm;
   if (s.disabled || n.hidden) return false;
   for (const b of G.beams) {
-    if (!inCone(b, n.x, n.y)) continue;
+    if (!inBeam(b, n.x, n.y, 8)) continue;
     if (n === G.jesse && G.jesseState === 'approach') {
       const dx = s.x - n.x, dy = s.y - n.y, d = Math.hypot(dx, dy) + 0.01;
       n.vx += (dx / d) * 500 * dt; n.vy += (dy / d) * 500 * dt; n.z = lerp(n.z, 16, dt * 2);
@@ -2604,16 +2816,17 @@ function startEscape(byTimer) {
   const j = G.jesse, from = ROUTE[G.routeIdx], to = ROUTE[G.routeIdx + 1];
   const dest = hideDest(to);
   let kind, path, msg;
+  const W = WORLDINFO;
   if (from === 'gabriel') {
-    kind = 'portal'; path = [[j.x, j.y], [WORLDINFO.portal.x, WORLDINFO.portal.y + 12], [dest.x, dest.y]];
+    kind = 'portal'; path = [[j.x, j.y], [W.portal.x, W.portal.y + 12], [W.portalBoom.x, W.portalBoom.y + 12], [dest.x, dest.y]];
     msg = 'Jesse escaped through the Nether portal! The Storm isn\'t strong enough yet.';
   } else if (from === 'boom') {
     kind = 'rail';
     path = [[j.x, j.y], [WORLDINFO.railBoom.x, WORLDINFO.railBoom.y]].concat(WORLDINFO.railPath.map((p) => [p[0], p[1]]), [[WORLDINFO.railRed.x, WORLDINFO.railRed.y], [dest.x, dest.y]]);
     msg = 'Jesse escaped on the Nether rail! The Storm isn\'t strong enough yet.';
   } else {
-    kind = 'run'; path = [[j.x, j.y], [j.x, j.y - 200], [dest.x, dest.y]];
-    msg = 'Jesse fled north to Soren\'s Fortress! The Storm isn\'t strong enough yet.';
+    kind = 'portal'; path = [[j.x, j.y], [W.portalRed.x, W.portalRed.y + 12], [W.portalSoren.x, W.portalSoren.y + 12], [dest.x, dest.y]];
+    msg = 'Jesse took the Nether shortcut to the Far Lands! The Storm isn\'t strong enough yet.';
   }
   if (byTimer) msg = 'Jesse moved on to ' + LOC[to].name + '.';
   const lens = [0];
@@ -2674,7 +2887,7 @@ function updateHeroes(dt) {
         if (Math.abs(p[0] - j.x) > 0.5) j.face = p[0] > j.x ? 1 : -1;
         j.x = p[0]; j.y = p[1]; j.anim += dt * 12;
         j.hidden = T.kind === 'portal';
-        if (T.kind === 'portal' && T.t < 1.2) burst(WORLDINFO.portal.x, WORLDINFO.portal.y, 3, 60, 0.6, 4, PC.purple, 1);
+        if (T.kind === 'portal' && T.t < 1.2) burst(T.path[1][0], T.path[1][1] - 12, 3, 60, 0.6, 4, PC.purple, 1);
         if (u >= 1) {
           G.routeIdx++; G.jesseState = 'hide'; G.jesseTimer = 0; j.hidden = false; G.transit = null;
           j.homeX = j.x; j.homeY = j.y;
@@ -2813,7 +3026,7 @@ function updateFbomb(dt) {
     F.table.x = lerp(F.table.x, j.x + 22, dt * 2); F.table.y = lerp(F.table.y, j.y + 4, dt * 2);
     G.beams.length = 0;
     const len = dist(h.mx, h.my, F.sx, F.sy);
-    G.beams.push({ code: 0, ox: h.mx, oy: h.my, dir: h.aim, len, half: 0.22, ring: len * 0.22, ix: h.mx + Math.cos(h.aim) * len, iy: h.my + Math.sin(h.aim) * len, bubble: false, pull: 0, power: 0, strength: 1, main: true });
+    G.beams.push({ code: 0, ox: h.mx, oy: h.my, dir: h.aim, len, hw: 11, hitTx: -1, hitTy: -1, ix: h.mx + Math.cos(h.aim) * len, iy: h.my + Math.sin(h.aim) * len, bubble: false, pull: 0, power: 0, strength: 1, main: true });
     s.beamStrength = 1; h.jaw = 0.5;
     updateHeads(dt, false);
     if (F.t > 4.2 && !F.consumed) {
@@ -2951,18 +3164,18 @@ function enterBowels() {
     heads.push(h);
   }
   const tentacles = [];
-  for (let k = 0; k < 5; k++) tentacles.push({ ang: Math.PI / 2 + k * TAU / 5, state: 'idle', t: rr(1, 4), sweep: 0, pts: [], hit: false, len: 380 });
+  for (let k = 0; k < 5; k++) tentacles.push({ ang: Math.PI / 2 + k * TAU / 5, state: 'idle', t: rr(1, 4), sweep: 0, pts: [], hit: false, len: 380, pcd: 0, tx: 0, ty: 0 });
   G.bw = {
     t: 0, round: 1, hits: 0, bg: buildBowelsBG(), heads, tentacles, active: 0,
     cb: { x: BW_C, y: BW_C, z: 0, flyA: 0, crack: 0, shake: 0 },
     jesse: { x: BW_C, y: BW_C + 520, vx: 0, vy: 0, hp: CFG.JESSE_HP, flash: 0, potions: 3, potCd: 0, tntCd: 2.5, placing: 0, face: 1, anim: 0, splashCd: 6, swingCd: 0, z: 0 },
     reuben: { x: BW_C + 30, y: BW_C + 550, vx: 0, vy: 0, hp: CFG.REUBEN_HP, down: 0, face: 1, anim: 0, z: 0 },
-    tnts: [], mobs: [], skulls: [], pots: [], mobCd: 4, beam: null, end: null, pan: { x: 0, y: 0 },
+    tnts: [], mobs: [], skulls: [], pots: [], mobCd: 4, beam: null, end: null, pan: { x: 0, y: 0 }, slamCd: 0,
   };
   G.mode = 'bowels'; G.state = 'bowels'; G.storyPhase = 5;
   resetParticles();
   G.rings.length = 0; G.flashes.length = 0;
-  addBanner('THE BOWELS', 'Stop Jesse from blowing up the Command Block! 1/2/3 wall heads • E skull • V beam (yank TNT!)', 5);
+  addBanner('THE BOWELS', 'Stop Jesse from blowing up the Command Block! 1/2/3 wall heads • E skull • V beam (yank TNT!) • Q tentacle slam', 5);
 }
 function bwHeadMouth(h) { return { x: h.x + Math.cos(h.aim) * h.hs, y: h.y + Math.sin(h.aim) * h.hs }; }
 function bwFireSkull(h, ang, ai) {
@@ -2987,11 +3200,42 @@ function bwExplode(x, y, R, o) {
   G.flashes.push({ x, y, r: R * 2.5, life: 0.25, t: 0, col: o.tnt ? [255, 170, 80] : [170, 90, 255] });
   addTrauma(o.tnt ? 0.5 : 0.2); Snd.boom(R / 100, 0.9);
 }
-function bwInCone(b, x, y) {
-  const dx = x - b.ox, dy = y - b.oy, dd = dx * dx + dy * dy;
-  if (dd > b.len * b.len) return false;
-  if (dd < 900) return true;
-  return Math.abs(angDiff(b.dir, Math.atan2(dy, dx))) < b.half;
+function bwBeamLen(ox, oy, dir) {
+  // distance from the head to the arena wall along the beam
+  const bx = ox - BW_C, by = oy - BW_C, dx = Math.cos(dir), dy = Math.sin(dir), R = CFG.BOWELS_R;
+  const bd = bx * dx + by * dy, disc = bd * bd - (bx * bx + by * by - R * R);
+  return disc > 0 ? clamp(-bd + Math.sqrt(disc), 40, 1500) : 40;
+}
+function bwInBeam(b, x, y) {
+  const dx = x - b.ox, dy = y - b.oy, c = Math.cos(b.dir), s = Math.sin(b.dir), along = dx * c + dy * s;
+  if (along < -10 || along > b.len + 10) return false;
+  return Math.abs(dy * c - dx * s) <= b.hw + 12;
+}
+function bwPlayerSlam(mw) {
+  const B = G.bw;
+  if (B.slamCd > 0) return;
+  const a = Math.atan2(mw.y - BW_C, mw.x - BW_C);
+  let best = null, bd = 1e9;
+  for (const tn of B.tentacles) { if (tn.state === 'pslam' || tn.pcd > 0) continue; const d = Math.abs(angDiff(tn.ang, a)); if (d < bd) { bd = d; best = tn; } }
+  if (!best) return;
+  best.state = 'pslam'; best.t = 0.55; best.tx = mw.x; best.ty = mw.y; best.hit = false; best.pcd = 2; B.slamCd = 0.3;
+  Snd.whoosh();
+}
+function bwSlam(x, y) {
+  const B = G.bw, J = B.jesse, Rb = B.reuben, R = 84;
+  const hit = (e, dmg) => {
+    const d = dist(x, y, e.x, e.y); if (d > R) return false;
+    const f = 1 - d / R, a = Math.atan2(e.y - y, e.x - x);
+    e.hp -= dmg * f + 4; e.flash = 0.4; e.vx += Math.cos(a) * 460 * f + Math.cos(a) * 80; e.vy += Math.sin(a) * 460 * f + Math.sin(a) * 80;
+    return true;
+  };
+  if (!B.end) { if (hit(J, 14)) Snd.hurt(); if (!Rb.down) hit(Rb, 8); }
+  for (const m of B.mobs) hit(m, 3);
+  for (const t of B.tnts) { const d = dist(x, y, t.x, t.y); if (d < R + 24) { const a = Math.atan2(t.y - y, t.x - x); t.vx += Math.cos(a) * 560; t.vy += Math.sin(a) * 560; } }
+  burst(x, y, 30, 220, 0.6, 5, PC.flesh, 0, 40); burst(x, y, 16, 160, 0.9, 6, PC.smoke, 0, -20);
+  G.rings.push({ x, y, r: 16, max: R * 1.6, life: 0.45, t: 0, col: [255, 120, 220], w: 7 });
+  addTrauma(0.35); Snd.boom(0.6, 0.8);
+  G.stats.slams++;
 }
 function updateBowels(dt) {
   const B = G.bw, J = B.jesse, Rb = B.reuben, cb = B.cb;
@@ -3029,16 +3273,18 @@ function updateBowels(dt) {
   }
   const ah = B.heads[B.active];
   if (ctrl && ah.injured > 0) { for (let k = 1; k <= 2; k++) { const j = (B.active + k) % 3; if (B.heads[j].injured <= 0) { B.active = j; break; } } }
+  B.slamCd = Math.max(0, B.slamCd - dt);
+  if (ctrl && G.storm.slamQueued) { G.storm.slamQueued = false; bwPlayerSlam(mw); }
   if (ctrl && G.storm.fireQueued) { G.storm.fireQueued = false; if (ah.injured <= 0 && ah.cd <= 0) bwFireSkull(ah, ah.aim, false); }
   // --- beam ---
   B.beam = null;
   const beamKey = held('KeyV') || mouse.right;
   if (ctrl && beamKey && ah.injured <= 0) {
     const m = bwHeadMouth(ah);
-    B.beam = { h: ah, ox: m.x, oy: m.y, dir: ah.aim, len: 780, half: 0.24 };
+    B.beam = { h: ah, ox: m.x, oy: m.y, dir: ah.aim, len: bwBeamLen(m.x, m.y, ah.aim), hw: 26 };
   }
   const pullTo = (e, acc, dt2) => {
-    const b = B.beam; if (!b || !bwInCone(b, e.x, e.y)) return false;
+    const b = B.beam; if (!b || !bwInBeam(b, e.x, e.y)) return false;
     const dx = b.ox - e.x, dy = b.oy - e.y, d = Math.hypot(dx, dy) + 0.1;
     e.vx += (dx / d) * acc * dt2; e.vy += (dy / d) * acc * dt2;
     return d;
@@ -3148,7 +3394,12 @@ function updateBowelTentacle(tn, dt) {
     const u = 1 - tn.t / 0.45;
     aimOff = tn.base - tn.sweepDir * 1.8 * smooth(clamp(u, 0, 1)); len *= 1.25;
     if (tn.t <= 0) { tn.state = 'idle'; tn.t = rr(2.5, 4.5) / (B.round >= 3 ? 1.4 : 1); }
+  } else if (tn.state === 'pslam') {
+    // player-directed slam: lift (wind), then smash down on the cursor
+    if (tn.t <= 0.12 && !tn.hit) { tn.hit = true; bwSlam(tn.tx, tn.ty); }
+    if (tn.t <= 0) { tn.state = 'idle'; tn.t = rr(1.5, 3); }
   }
+  tn.pcd = Math.max(0, tn.pcd - dt);
   tn.aimOff = lerp(tn.aimOff || 0, aimOff, Math.min(1, dt * (tn.state === 'swipe' ? 14 : 4)));
   // build segments
   const pts = []; const segs = 12;
@@ -3158,6 +3409,10 @@ function updateBowelTentacle(tn, dt) {
     const a = inward + tn.aimOff * (0.4 + u) + Math.sin(B.t * 2 + k * 0.6 + tn.ang) * 0.12 * u;
     pts.push([x, y]);
     x += Math.cos(a) * len / segs; y += Math.sin(a) * len / segs;
+  }
+  if (tn.state === 'pslam') {
+    const w = tn.t > 0.3 ? 0.35 : 1, lift = tn.t > 0.3 ? 60 : 0;
+    for (let k = 0; k < pts.length; k++) { const u = k / (pts.length - 1); pts[k][0] = lerp(pts[k][0], lerp(bx, tn.tx, u), w); pts[k][1] = lerp(pts[k][1], lerp(by, tn.ty, u), w) - lift * u; }
   }
   tn.pts = pts;
   if (tn.state === 'swipe' && !tn.hit && !B.end) {
@@ -3260,7 +3515,7 @@ function updateBowelEnding(dt) {
     let best = B.heads[0], bd = 1e18;
     for (const h of B.heads) { const dd = d2(h.x, h.y, J.x, J.y); if (dd < bd && h.slot < 3) { bd = dd; best = h; } }
     best.aim = lerpAngle(best.aim, Math.atan2(J.y - best.y, J.x - best.x), Math.min(1, dt * 6));
-    B.beam = { h: best, ox: best.mx, oy: best.my, dir: best.aim, len: Math.sqrt(bd) + 40, half: 0.24 };
+    B.beam = { h: best, ox: best.mx, oy: best.my, dir: best.aim, len: Math.sqrt(bd) + 40, hw: 26 };
     J.x = lerp(J.x, best.mx, Math.min(1, dt * 1.2)); J.y = lerp(J.y, best.my, Math.min(1, dt * 1.2));
     if (E.t > 2 && !E.eaten) { E.eaten = true; best.eat = 1; Snd.crunch(); burst(J.x, J.y, 30, 150, 0.7, 4, PC.flesh, 0); }
     if (E.t > 3.5) { G.state = 'ending'; G.endType = 'storm'; G.endT = 0; }
@@ -3367,14 +3622,7 @@ function drawBowelsGlow(c) {
     c.globalAlpha = 0.8; c.drawImage(glowSprite(h.injured > 0 ? [255, 40, 40] : HEADS[h.i].eyeGlow), h.ex - gs, h.ey - gs, gs * 2, gs * 2);
   }
   const b = B.beam;
-  if (b) {
-    c.globalAlpha = 1;
-    const l1x = b.ox + Math.cos(b.dir - b.half) * b.len, l1y = b.oy + Math.sin(b.dir - b.half) * b.len;
-    const l2x = b.ox + Math.cos(b.dir + b.half) * b.len, l2y = b.oy + Math.sin(b.dir + b.half) * b.len;
-    const gr = c.createLinearGradient(b.ox, b.oy, b.ox + Math.cos(b.dir) * b.len, b.oy + Math.sin(b.dir) * b.len);
-    gr.addColorStop(0, 'rgba(200,130,255,0.55)'); gr.addColorStop(1, 'rgba(120,40,220,0.08)');
-    c.fillStyle = gr; c.beginPath(); c.moveTo(b.ox, b.oy); c.lineTo(l1x, l1y); c.lineTo(l2x, l2y); c.closePath(); c.fill();
-  }
+  if (b) { c.globalAlpha = 1; drawBeamRay(c, b.ox, b.oy, b.dir, b.len, b.hw, 1, false, G.time); }
   c.globalAlpha = 1;
 }
 
@@ -3576,14 +3824,14 @@ function renderWorldScene() {
   // progeny and the Storm
   if (G.progeny) for (const p of G.progeny) {
     drawStormBody(c, { x: p.x, y: p.y, r: p.r, facing: p.facing, t: p.t, stageC: 6, heads: p.heads, active: -1, eyesDark: s.disabled, cbAlpha: 0,
-      tentacles: 3, tentLen: 1.4, torn: true, swell: 0, pulse: 0, debris: null, cracks: s.cracks, lumps: s.lumps, hole: 0, showUI: false });
+      tentacles: 3, tentLen: 1.4, tentThick: 0.8, cubes: s.cubes, torn: true, swell: 0, pulse: 0, debris: null, cracks: s.cracks, lumps: s.lumps, hole: 0, showUI: false });
   }
   if (!s.hiddenIntro) {
     if (s.segs) {
       for (let k = 0; k < 3; k++) {
         const sg = s.segs[k];
         drawStormBody(c, { x: sg.x, y: sg.y, r: sg.r, facing: sg.a, t: s.t, stageC: 5.5, heads: k === 0 ? s.heads : [], active: -1, eyesDark: true,
-          cbAlpha: k === 0 ? clamp(1 - G.dp.t / CFG.DEADPLAY_TIME + 0.3, 0, 1) : 0, tentacles: k === 0 ? 2 : 1, tentLen: 0.8, torn: true, swell: 0, pulse: s.pulse,
+          cbAlpha: k === 0 ? clamp(1 - G.dp.t / CFG.DEADPLAY_TIME + 0.3, 0, 1) : 0, tentacles: k === 0 ? 2 : 1, tentLen: 0.8, tentThick: 0.8, cubes: s.cubes, torn: true, swell: 0, pulse: s.pulse,
           debris: null, cracks: s.cracks, lumps: s.lumps, hole: 0, showUI: false });
       }
     } else drawStormBody(c, stormDrawOpts(s));
@@ -3731,7 +3979,8 @@ function drawHUDWorld(c) {
   const s = G.storm;
   const W = Math.min(320, cssW - 24);
   const objLines = wrapText(c, 'OBJECTIVE: ' + objectiveText(), W - 20, 12);
-  const H = 176 + (s.stage >= 4 ? 16 : 0) + (objLines.length - 1) * 15;
+  const nT = tentCount(s.stageC);
+  const H = 176 + (s.stage >= 4 ? 16 : 0) + (nT > 0 ? 16 : 0) + (objLines.length - 1) * 15;
   panel(c, 12, 12, W, H);
   G.hudRects.push({ x0: 12, y0: 12, x1: 12 + W, y1: 12 + H });
   let y = 20;
@@ -3751,6 +4000,11 @@ function drawHUDWorld(c) {
   drawText(c, 'ACTIVE HEAD: ' + (s.active + 1), 22, y + 6, 12, COL.text);
   drawHeadBoxes(c, W - 110, y, s.heads, s.active, (h) => h.cd / h.cdMax);
   y += 32;
+  if (nT > 0) {
+    drawText(c, 'SLAM [Q]', 22, y, 12, COL.dim);
+    for (let k = 0; k < nT; k++) { const T = s.tents[k], ready = T.state === 'idle' && T.cd <= 0; c.fillStyle = ready ? '#c060ff' : '#3a2a4a'; c.fillRect(110 + k * 16, y + 1, 12, 10); }
+    y += 16;
+  }
   if (s.stage >= 4) { drawText(c, 'CHASE', 22, y, 12, COL.dim); bar(c, 90, y, W - 150, 10, s.stamina / CFG.STAMINA_MAX, s.chasing ? '#ffcc4d' : '#8a6aff'); y += 16; }
   for (const l of objLines) { drawText(c, l, 22, y, 12, COL.warn); y += 15; }
   drawText(c, 'MASS ' + Math.floor(s.mu) + ' MU' + (s.pending > 1 ? '  (+' + Math.floor(s.pending) + ' digesting)' : ''), 22, y + 2, 11, COL.dim);
@@ -3843,6 +4097,7 @@ function drawMinimap(c, full) {
   panel(c, x - 6, y - 6, size + 12, size + 12);
   c.imageSmoothingEnabled = true; c.drawImage(mmCanvas, x, y, size, size); c.imageSmoothingEnabled = false;
   const k = size / WORLD_PX;
+  if (full) for (const l of MAP_LABELS) drawTextC(c, l.name, x + l.x * TILE * k, y + l.y * TILE * k - 6, 11, COL.jesse);
   if (full) for (const key in LOC) { const l = LOC[key]; drawTextC(c, l.name.toUpperCase(), x + l.x * TILE * k, y + l.y * TILE * k - 18, 12, COL.text); c.fillStyle = COL.text; c.fillRect(x + l.x * TILE * k - 2, y + l.y * TILE * k - 2, 4, 4); }
   const v = G.view;
   c.strokeStyle = 'rgba(255,255,255,0.7)'; c.lineWidth = 1;
@@ -3858,7 +4113,7 @@ function drawMinimap(c, full) {
 function drawControls(c) {
   const lines = G.showHelp ? [
     '[H] HIDE CONTROLS', 'WASD  move', 'MOUSE aim heads', 'V/RMB tractor beam', 'E/LMB wither skull', '1 2 3 select head',
-    'SHIFT chase (Phase 4+)', 'M map   P pause', 'R restart  N mute', 'F3 debug',
+    'Q     tentacle slam', 'SHIFT chase (Phase 4+)', 'M map   P pause', 'R restart  N mute', 'F3 debug',
   ] : ['[H] CONTROLS'];
   const w = 190, h = lines.length * 15 + 12, y = cssH - h - 12;
   panel(c, 12, y, w, h);
@@ -3933,7 +4188,7 @@ function drawTitle(c) {
     'the phases, hunt Jesse, survive the Formidibomb... and defend the Command Block.',
     '',
     'WASD move   •   MOUSE aim   •   V (or right mouse) tractor beam',
-    'E (or left mouse) wither skull   •   1 / 2 / 3 select head',
+    'E (or left mouse) wither skull   •   Q tentacle slam   •   1 / 2 / 3 select head',
     'SHIFT chase (Phase 4+)   •   M map   •   P pause   •   R restart   •   N mute',
   ];
   const fs = Math.min(15, cssW / 52);
@@ -3951,7 +4206,7 @@ function drawEnding(c) {
   const st = G.stats, m = Math.floor(st.time / 60), sec = Math.floor(st.time % 60);
   const rows = [
     ['Time', m + 'm ' + (sec < 10 ? '0' : '') + sec + 's'], ['Peak phase', String(G.maxStage)], ['Mass consumed', Math.floor(st.mass) + ' MU'],
-    ['Blocks destroyed', String(st.blocks)], ['Entities devoured', String(st.devoured)], ['Wither skulls fired', String(st.skulls)],
+    ['Blocks destroyed', String(st.blocks)], ['Entities devoured', String(st.devoured)], ['Wither skulls fired', String(st.skulls)], ['Tentacle slams', String(st.slams)],
   ];
   const fs = Math.min(18, cssW / 40), bx = cssW / 2 - Math.min(220, cssW * 0.4);
   rows.forEach((r, k) => { drawText(c, r[0], bx, cssH * 0.3 + k * (fs + 10), fs, COL.dim); drawText(c, r[1], cssW - bx, cssH * 0.3 + k * (fs + 10), fs, COL.text, 'right'); });
@@ -4019,7 +4274,7 @@ function newGame(startState) {
   G = {
     state: startState || 'title', mode: 'world', paused: false, time: 0, timeScale: 1, hitStop: 0, whiteout: 0, fade: null,
     storm: makeStorm(tot.tx * TILE + 8, tot.ty * TILE + 8), progeny: null, beams: [], rings: [], flashes: [], toasts: [], banner: null,
-    burning: [], litTnt: [], collapse: [], stats: { blocks: 0, devoured: 0, skulls: 0, mass: 0, time: 0, jesseHp: 100 },
+    burning: [], litTnt: [], collapse: [], stats: { blocks: 0, devoured: 0, skulls: 0, slams: 0, mass: 0, time: 0, jesseHp: 100 },
     cam: { x: tot.tx * TILE, y: tot.ty * TILE, vx: 0, vy: 0, scale: 1, trauma: 0, sx: 0, sy: 0 }, view: null, mouseWorld: { x: 0, y: 0 },
     darkness: 0.1, fbombDone: false, storyPhase: 0, absorbedPeople: 0, maxStage: 0, clusterCount: 0, screamCd: 0, toastCd: 0,
     intro: { t: 0, skulls: 0, blown: false, rumble: false }, fb: null, dp: null, bw: null, endType: null, endT: 0,
@@ -4048,6 +4303,7 @@ function handleFrameInput() {
   const pausable = G.state === 'playing' || G.state === 'fbomb' || G.state === 'bowels' || G.state === 'deadplay';
   if (pausable && (consumePressed('KeyP') || consumePressed('Escape'))) { G.paused = !G.paused; releaseAll(); }
   if (!G.paused && (consumePressed('KeyE') || mouse.clicked)) G.storm.fireQueued = true;
+  if (!G.paused && consumePressed('KeyQ')) G.storm.slamQueued = true;
   if (mouse.left && !G.paused) G.storm.fireQueued = true;
 }
 function updateFX(dt) {
